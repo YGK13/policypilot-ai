@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   POLICYPILOT AI — DESIGN SYSTEM
+   CSS Variables, custom utilities, component styles
+============================================================================= */
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+}
+
+/* -- Base -- */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* -- Scrollbar -- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* =============================================================================
+   PILL / TAG COMPONENT
+============================================================================= */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pill-brand { background: var(--color-brand-50); color: var(--color-brand-700); }
+.pill-green { background: var(--color-success-50); color: var(--color-success-700); }
+.pill-amber { background: var(--color-warning-50); color: var(--color-warning-700); }
+.pill-red { background: var(--color-danger-50); color: var(--color-danger-700); }
+.pill-blue { background: var(--color-info-50); color: var(--color-info-600); }
+.pill-gray { background: #f3f4f6; color: #4b5563; }
+.pill-outline { background: transparent; border: 1px solid #d1d5db; color: #4b5563; }
+
+/* =============================================================================
+   ROUTE TAGS
+============================================================================= */
+.route-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.route-tag.auto { background: var(--color-success-50); color: var(--color-success-700); }
+.route-tag.hr { background: var(--color-warning-50); color: var(--color-warning-700); }
+.route-tag.legal { background: var(--color-danger-50); color: var(--color-danger-700); }
+
+/* =============================================================================
+   TOGGLE SWITCH
+============================================================================= */
+.toggle {
+  width: 40px;
+  height: 22px;
+  background: #d1d5db;
+  border-radius: 11px;
+  cursor: pointer;
+  position: relative;
+  transition: background 180ms cubic-bezier(.4,0,.2,1);
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--color-brand-500); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 180ms cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.toggle.on::after { transform: translateX(18px); }
+
+/* =============================================================================
+   CHAT STYLES
+============================================================================= */
+.msg-bubble a { color: var(--color-brand-600); text-decoration: underline; }
+.msg-bubble strong { font-weight: 600; }
+.msg-bubble table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 8px 0; }
+.msg-bubble th, .msg-bubble td { padding: 6px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+
+/* -- Typing animation -- */
+.typing-indicator { display: flex; gap: 4px; padding: 8px 0; }
+.typing-indicator span {
+  width: 6px; height: 6px;
+  background: var(--color-brand-400);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: .2s; }
+.typing-indicator span:nth-child(3) { animation-delay: .4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .3; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* -- Message animation -- */
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.msg-animate { animation: msgIn .3s cubic-bezier(.4,0,.2,1); }
+
+/* =============================================================================
+   BAR CHART / DONUT (CSS-based)
+============================================================================= */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 150px;
+  padding-top: 10px;
+}
+
+/* =============================================================================
+   TOAST NOTIFICATIONS
+============================================================================= */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.toast-animate { animation: slideIn .25s cubic-bezier(.4,0,.2,1); }
+
+/* =============================================================================
+   KANBAN
+============================================================================= */
+.kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  min-height: calc(100vh - 200px);
+}
+@media (max-width: 1100px) { .kanban-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .kanban-grid { grid-template-columns: 1fr; } }
+
+/* =============================================================================
+   PLAN CARDS (Billing)
+============================================================================= */
+.plan-card.popular {
+  position: relative;
+}
+.plan-card.popular::before {
+  content: 'MOST POPULAR';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-brand-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  letter-spacing: .5px;
+}
