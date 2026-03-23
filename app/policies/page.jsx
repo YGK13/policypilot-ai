@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import POLICIES from "@/lib/data/policies";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
 
@@ -160,9 +160,5 @@ function PoliciesContent() {
 }
 
 export default function PoliciesPage() {
-  return (
-    <AppShell currentView="policies">
-      <PoliciesContent />
-    </AppShell>
-  );
+  return <PoliciesContent />;
 }

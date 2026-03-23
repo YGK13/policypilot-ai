@@ -1,6 +1,6 @@
 "use client";
 
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import { useState } from "react";
 
 // ============================================================================
@@ -107,9 +107,5 @@ function TicketsContent() {
 }
 
 export default function TicketsPage() {
-  return (
-    <AppShell currentView="tickets">
-      <TicketsContent />
-    </AppShell>
-  );
+  return <TicketsContent />;
 }

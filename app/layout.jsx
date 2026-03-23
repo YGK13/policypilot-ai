@@ -1,8 +1,11 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
+import AppShell from "./AppShell";
 
 // ============================================================================
-// ROOT LAYOUT — Server component, wraps entire app
+// ROOT LAYOUT — Server component shell + client AppShell for persistent state
+// AppShell wraps all pages so shared state (tickets, audit log, settings,
+// employee context) persists across Next.js client-side navigations.
 // ============================================================================
 
 const inter = Inter({
@@ -19,7 +22,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

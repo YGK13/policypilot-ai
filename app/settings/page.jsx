@@ -1,6 +1,6 @@
 "use client";
 
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import Toggle from "@/components/ui/Toggle";
 
 // ============================================================================
@@ -187,9 +187,5 @@ function SettingsContent() {
 }
 
 export default function SettingsPage() {
-  return (
-    <AppShell currentView="settings">
-      <SettingsContent />
-    </AppShell>
-  );
+  return <SettingsContent />;
 }

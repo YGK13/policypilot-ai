@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 
 // ============================================================================
 // ANALYTICS PAGE — Stat cards, weekly volume bar chart, queries by state
@@ -125,9 +125,5 @@ function AnalyticsContent() {
 }
 
 export default function AnalyticsPage() {
-  return (
-    <AppShell currentView="analytics">
-      <AnalyticsContent />
-    </AppShell>
-  );
+  return <AnalyticsContent />;
 }

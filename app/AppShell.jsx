@@ -8,6 +8,7 @@ import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 
 // ============================================================================
 // APP CONTEXT — shared state across all views
+// Persists across navigations because AppShell lives in the root layout.
 // ============================================================================
 const AppContext = createContext(null);
 
@@ -16,9 +17,10 @@ export function useApp() {
 }
 
 // ============================================================================
-// APP SHELL — Client wrapper with sidebar + topbar + view routing
+// APP SHELL — Client wrapper with sidebar + topbar + persistent shared state
+// Placed in RootLayout so all page navigations preserve tickets, audit, etc.
 // ============================================================================
-export default function AppShell({ children, currentView }) {
+export default function AppShell({ children }) {
   const [mode, setMode] = useState("employee");
   const [employee, setEmployee] = useState(DEMO_EMPLOYEES[0]);
 
@@ -84,10 +86,9 @@ export default function AppShell({ children, currentView }) {
     <ToastProvider>
       <AppContext.Provider value={contextValue}>
         <div className="flex h-screen overflow-hidden">
-          <Sidebar currentView={currentView} />
+          <Sidebar />
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Topbar
-              currentView={currentView}
               mode={mode}
               onModeChange={setMode}
               employee={employee}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 
 // ============================================================================
 // API KEYS PAGE — Create, list, and revoke API keys + REST quick-start
@@ -250,9 +250,5 @@ function ApiKeysContent() {
 }
 
 export default function ApiKeysPage() {
-  return (
-    <AppShell currentView="api-keys">
-      <ApiKeysContent />
-    </AppShell>
-  );
+  return <ApiKeysContent />;
 }

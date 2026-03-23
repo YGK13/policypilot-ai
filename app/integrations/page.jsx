@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import CONNECTORS from "@/lib/data/connectors";
 import Modal from "@/components/ui/Modal";
 
@@ -295,9 +295,5 @@ function IntegrationsContent() {
 }
 
 export default function IntegrationsPage() {
-  return (
-    <AppShell currentView="integrations">
-      <IntegrationsContent />
-    </AppShell>
-  );
+  return <IntegrationsContent />;
 }

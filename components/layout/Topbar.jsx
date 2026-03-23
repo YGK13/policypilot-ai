@@ -1,35 +1,37 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
+
 // =============================================================================
 // TOPBAR — Top navigation bar for the PolicyPilot AI platform
-// Shows: view title, Employee/Admin mode toggle, employee dropdown,
-//        notification bell, and user avatar pill.
+// Shows: view title (derived from pathname), Employee/Admin mode toggle,
+// employee dropdown, notification bell, and user avatar pill.
 // =============================================================================
 
-// -- Human-readable titles for each view key --
+// -- Human-readable titles keyed by first pathname segment --
 const VIEW_TITLES = {
-  dashboard:    'Dashboard',
-  chat:         'AI Chat',
-  tickets:      'Ticket Queue',
-  documents:    'Documents',
-  integrations: 'Integrations',
-  policies:     'Policies & Jurisdictions',
-  analytics:    'Analytics',
-  audit:        'Audit Log',
-  settings:     'Settings',
-  billing:      'Billing & Plans',
-  'api-keys':   'API Keys',
+  '/':             'Dashboard',
+  '/chat':         'AI Chat',
+  '/tickets':      'Ticket Queue',
+  '/documents':    'Documents',
+  '/integrations': 'Integrations',
+  '/policies':     'Policies & Jurisdictions',
+  '/analytics':    'Analytics',
+  '/audit':        'Audit Log',
+  '/settings':     'Settings',
+  '/billing':      'Billing & Plans',
+  '/api-keys':     'API Keys',
 };
 
 export default function Topbar({
-  currentView,
   mode,
   onModeChange,
   employee,
   employees = [],
   onEmployeeChange,
 }) {
-  const title = VIEW_TITLES[currentView] || 'PolicyPilot AI';
+  const pathname = usePathname();
+  const title = VIEW_TITLES[pathname] || 'PolicyPilot AI';
 
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
@@ -72,10 +74,7 @@ export default function Topbar({
         {employees.length > 0 && (
           <select
             value={employee?.id || ''}
-            onChange={(e) => {
-              const selected = employees.find((emp) => emp.id === e.target.value);
-              if (selected) onEmployeeChange(selected);
-            }}
+            onChange={(e) => onEmployeeChange(e.target.value)}
             className="
               text-sm text-gray-700 bg-white border border-gray-200 rounded-lg
               px-3 py-1.5
@@ -85,7 +84,7 @@ export default function Topbar({
           >
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
-                {emp.name}
+                {emp.firstName} {emp.lastName} — {emp.state}
               </option>
             ))}
           </select>
@@ -103,7 +102,6 @@ export default function Topbar({
               d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
             />
           </svg>
-          {/* Notification dot — red indicator for unread */}
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full" />
         </button>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { genId } from "@/lib/utils";
 import { useToast } from "@/components/layout/ToastProvider";
@@ -252,9 +252,5 @@ function ChatContent() {
 }
 
 export default function ChatPage() {
-  return (
-    <AppShell currentView="chat">
-      <ChatContent />
-    </AppShell>
-  );
+  return <ChatContent />;
 }

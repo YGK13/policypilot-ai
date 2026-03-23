@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 
 // ============================================================================
 // AUDIT PAGE — Audit log display with export CSV functionality
@@ -107,9 +107,5 @@ function AuditContent() {
 }
 
 export default function AuditPage() {
-  return (
-    <AppShell currentView="audit">
-      <AuditContent />
-    </AppShell>
-  );
+  return <AuditContent />;
 }

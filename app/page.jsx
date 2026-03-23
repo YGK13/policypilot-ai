@@ -1,6 +1,5 @@
 "use client";
 
-import AppShell from "./AppShell";
 import { useApp } from "./AppShell";
 import StatGrid from "@/components/dashboard/StatGrid";
 import BarChart from "@/components/dashboard/BarChart";
@@ -123,9 +122,5 @@ function DashboardContent() {
 }
 
 export default function DashboardPage() {
-  return (
-    <AppShell currentView="dashboard">
-      <DashboardContent />
-    </AppShell>
-  );
+  return <DashboardContent />;
 }

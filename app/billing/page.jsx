@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import PLANS from "@/lib/data/plans";
 
 // ============================================================================
@@ -105,9 +105,5 @@ function BillingContent() {
 }
 
 export default function BillingPage() {
-  return (
-    <AppShell currentView="billing">
-      <BillingContent />
-    </AppShell>
-  );
+  return <BillingContent />;
 }

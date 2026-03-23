@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import AppShell, { useApp } from "../AppShell";
+import { useApp } from "../AppShell";
 import { DEMO_DOCS } from "@/lib/data/demo-data";
 import SearchBar from "@/components/ui/SearchBar";
 
@@ -180,9 +180,5 @@ function DocumentsContent() {
 }
 
 export default function DocumentsPage() {
-  return (
-    <AppShell currentView="documents">
-      <DocumentsContent />
-    </AppShell>
-  );
+  return <DocumentsContent />;
 }
