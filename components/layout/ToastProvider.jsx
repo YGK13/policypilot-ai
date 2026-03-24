@@ -42,8 +42,10 @@ export default function ToastProvider({ children }) {
   const idRef = useRef(0);
 
   // -- Add a new toast notification --
-  const addToast = useCallback((message, type = 'info') => {
+  // Signature: addToast(type, title, detail?) — type first to match usage pattern
+  const addToast = useCallback((type = 'info', title = '', detail = '') => {
     const id = ++idRef.current;
+    const message = detail ? `${title}: ${detail}` : title;
     setToasts((prev) => [...prev, { id, message, type }]);
 
     // Auto-dismiss after 4 seconds

@@ -12,7 +12,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 
 function ChatContent() {
   const { employee, settings, tickets, setTickets, addAudit, addNotification } = useApp();
-  const toast = useToast();
+  const { addToast } = useToast();
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -40,9 +40,9 @@ function ChatContent() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // -- Send message --
-  const sendMessage = useCallback(() => {
-    const q = input.trim();
+  // -- Send message (accepts optional direct text to bypass stale state) --
+  const sendMessage = useCallback((directText) => {
+    const q = (typeof directText === "string" ? directText : input).trim();
     if (!q) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -104,16 +104,16 @@ function ChatContent() {
       );
 
       if (resp.routing === "legal" || resp.routing === "hr") {
-        toast("warning", "Ticket Escalated", `${ticket.id} routed to ${resp.routing === "legal" ? "Legal" : "HR"}`);
+        addToast("warning", "Ticket Escalated", `${ticket.id} routed to ${resp.routing === "legal" ? "Legal" : "HR"}`);
         // -- Fire a real notification so the bell lights up --
         addNotification(
           `Ticket Escalated → ${resp.routing === "legal" ? "Legal" : "HR"}`,
-          `${employee.firstName} ${employee.lastName}: "${input.slice(0, 60)}${input.length > 60 ? '...' : ''}"`,
+          `${employee.firstName} ${employee.lastName}: "${q.slice(0, 60)}${q.length > 60 ? '...' : ''}"`,
           resp.riskScore >= 75 ? "critical" : "warning"
         );
       }
     }, 800 + Math.random() * 600);
-  }, [input, employee, addAudit, setTickets, toast, addNotification]);
+  }, [input, employee, addAudit, setTickets, addToast, addNotification]);
 
   const suggestions = [
     "What's my PTO balance?",
@@ -145,7 +145,7 @@ function ChatContent() {
             🗑 Clear
           </button>
           <button
-            onClick={() => toast("info", "Export", "Chat exported to CSV")}
+            onClick={() => addToast("info", "Export", "Chat exported to CSV")}
             className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
           >
             📥 Export
@@ -202,10 +202,10 @@ function ChatContent() {
                 )}
                 {isBot && (
                   <div className="flex gap-1.5 mt-1.5">
-                    <button onClick={() => toast("success", "Thanks!", "Feedback recorded")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                    <button onClick={() => addToast("success", "Thanks!", "Feedback recorded")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                       👍
                     </button>
-                    <button onClick={() => toast("info", "Noted", "We'll improve this")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                    <button onClick={() => addToast("info", "Noted", "We'll improve this")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                       👎
                     </button>
                   </div>
@@ -245,7 +245,7 @@ function ChatContent() {
           {suggestions.map((s, i) => (
             <button
               key={i}
-              onClick={() => { setInput(s); setTimeout(sendMessage, 50); }}
+              onClick={() => sendMessage(s)}
               className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-[11px] text-gray-600 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-all"
             >
               {s}
