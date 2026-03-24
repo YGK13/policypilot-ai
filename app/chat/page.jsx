@@ -8,6 +8,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 
 // ============================================================================
 // CHAT PAGE — AI conversation with jurisdiction-aware responses
+// Hybrid: calls /api/chat (LLM) when available, falls back to local engine.
 // ============================================================================
 
 function ChatContent() {
@@ -18,6 +19,7 @@ function ChatContent() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [context, setContext] = useState([]);
+  const [llmEnabled, setLlmEnabled] = useState(true); // try LLM first
   const chatEndRef = useRef(null);
 
   // -- Welcome message on employee change --
@@ -40,10 +42,71 @@ function ChatContent() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // -- Process a response (shared between LLM and local paths) --
+  const processResponse = useCallback((resp, q) => {
+    const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now() + 1,
+        type: "bot",
+        content: resp.answer,
+        source: resp.source,
+        routing: resp.routing,
+        riskScore: resp.riskScore,
+        flags: resp.flags,
+        disclaimer: resp.disclaimer,
+        category: resp.category,
+        time: botTime,
+        confidence: resp.confidence,
+        policyId: resp.policyId,
+        llm: resp.llm || false,
+      },
+    ]);
+
+    // -- Auto-create ticket --
+    const nowFull = new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const ticket = {
+      id: genId(),
+      query: q,
+      category: resp.category,
+      riskScore: resp.riskScore,
+      routing: resp.routing,
+      status: resp.routing === "legal" ? "escalated" : resp.routing === "hr" ? "pending" : "resolved",
+      priority: resp.riskScore >= 76 ? "critical" : resp.riskScore >= 51 ? "high" : resp.riskScore >= 26 ? "medium" : "low",
+      employee: `${employee.firstName} ${employee.lastName}`,
+      employeeId: employee.id,
+      department: employee.department,
+      state: employee.state,
+      created: nowFull,
+      flags: resp.flags,
+      assignee: resp.routing === "legal" ? "Legal Team" : resp.routing === "hr" ? "HR Business Partner" : "Auto-resolved",
+      satisfaction: null,
+      resolution: resp.routing === "auto" ? "Resolved by AI" : "Pending human review",
+    };
+    setTickets((prev) => [ticket, ...prev]);
+
+    addAudit(
+      "RESPONSE_SENT",
+      `Category: ${resp.category} | Risk: ${resp.riskScore} | Route: ${resp.routing}${resp.llm ? " | LLM" : ""}`,
+      resp.riskScore >= 75 ? "critical" : resp.riskScore >= 50 ? "warning" : "info"
+    );
+
+    if (resp.routing === "legal" || resp.routing === "hr") {
+      addToast("warning", "Ticket Escalated", `${ticket.id} routed to ${resp.routing === "legal" ? "Legal" : "HR"}`);
+      addNotification(
+        `Ticket Escalated → ${resp.routing === "legal" ? "Legal" : "HR"}`,
+        `${employee.firstName} ${employee.lastName}: "${q.slice(0, 60)}${q.length > 60 ? '...' : ''}"`,
+        resp.riskScore >= 75 ? "critical" : "warning"
+      );
+    }
+  }, [employee, addAudit, setTickets, addToast, addNotification]);
+
   // -- Send message (accepts optional direct text to bypass stale state) --
-  const sendMessage = useCallback((directText) => {
+  const sendMessage = useCallback(async (directText) => {
     const q = (typeof directText === "string" ? directText : input).trim();
-    if (!q) return;
+    if (!q || isTyping) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setMessages((prev) => [...prev, { id: Date.now(), type: "user", content: q, time: timeStr }]);
@@ -52,68 +115,36 @@ function ChatContent() {
     setContext((prev) => [...prev.slice(-4), { role: "user", text: q }]);
     addAudit("QUERY_RECEIVED", `"${q.substring(0, 80)}${q.length > 80 ? "..." : ""}"`, "info");
 
-    setTimeout(() => {
-      setIsTyping(false);
-      const resp = generateResponse(q, employee);
-      const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    // -- Try API route first (LLM-powered if ANTHROPIC_API_KEY is set on server) --
+    if (llmEnabled) {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: q,
+            employee_id: employee.id,
+            jurisdiction: employee.state,
+          }),
+        });
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          type: "bot",
-          content: resp.answer,
-          source: resp.source,
-          routing: resp.routing,
-          riskScore: resp.riskScore,
-          flags: resp.flags,
-          disclaimer: resp.disclaimer,
-          category: resp.category,
-          time: botTime,
-          confidence: resp.confidence,
-          policyId: resp.policyId,
-        },
-      ]);
-
-      // -- Auto-create ticket --
-      const nowFull = new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-      const ticket = {
-        id: genId(),
-        query: q,
-        category: resp.category,
-        riskScore: resp.riskScore,
-        routing: resp.routing,
-        status: resp.routing === "legal" ? "escalated" : resp.routing === "hr" ? "pending" : "resolved",
-        priority: resp.riskScore >= 76 ? "critical" : resp.riskScore >= 51 ? "high" : resp.riskScore >= 26 ? "medium" : "low",
-        employee: `${employee.firstName} ${employee.lastName}`,
-        employeeId: employee.id,
-        department: employee.department,
-        state: employee.state,
-        created: nowFull,
-        flags: resp.flags,
-        assignee: resp.routing === "legal" ? "Legal Team" : resp.routing === "hr" ? "HR Business Partner" : "Auto-resolved",
-        satisfaction: null,
-        resolution: resp.routing === "auto" ? "Resolved by AI" : "Pending human review",
-      };
-      setTickets((prev) => [ticket, ...prev]);
-
-      addAudit(
-        "RESPONSE_SENT",
-        `Category: ${resp.category} | Risk: ${resp.riskScore} | Route: ${resp.routing}`,
-        resp.riskScore >= 75 ? "critical" : resp.riskScore >= 50 ? "warning" : "info"
-      );
-
-      if (resp.routing === "legal" || resp.routing === "hr") {
-        addToast("warning", "Ticket Escalated", `${ticket.id} routed to ${resp.routing === "legal" ? "Legal" : "HR"}`);
-        // -- Fire a real notification so the bell lights up --
-        addNotification(
-          `Ticket Escalated → ${resp.routing === "legal" ? "Legal" : "HR"}`,
-          `${employee.firstName} ${employee.lastName}: "${q.slice(0, 60)}${q.length > 60 ? '...' : ''}"`,
-          resp.riskScore >= 75 ? "critical" : "warning"
-        );
+        if (res.ok) {
+          const resp = await res.json();
+          setIsTyping(false);
+          processResponse(resp, q);
+          return;
+        }
+      } catch {
+        // API failed — fall back to local engine silently
       }
-    }, 800 + Math.random() * 600);
-  }, [input, employee, addAudit, setTickets, addToast, addNotification]);
+    }
+
+    // -- Fallback: local policy engine (instant, no API call) --
+    const resp = generateResponse(q, employee);
+    resp.llm = false;
+    setIsTyping(false);
+    processResponse(resp, q);
+  }, [input, isTyping, employee, addAudit, llmEnabled, processResponse]);
 
   const suggestions = [
     "What's my PTO balance?",
@@ -137,16 +168,28 @@ function ChatContent() {
             Jurisdiction: {employee.state} | Confidence threshold: {settings.confidenceThreshold}%
           </div>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex items-center gap-2">
+          {/* -- LLM toggle -- */}
+          <button
+            onClick={() => setLlmEnabled(!llmEnabled)}
+            className={`px-2.5 py-1 text-[10px] font-bold rounded-md border transition-colors cursor-pointer ${
+              llmEnabled
+                ? "bg-brand-50 border-brand-300 text-brand-700"
+                : "bg-gray-50 border-gray-300 text-gray-500"
+            }`}
+            title={llmEnabled ? "Using LLM (Claude API)" : "Using local policy engine"}
+          >
+            {llmEnabled ? "🧠 LLM" : "📋 Local"}
+          </button>
           <button
             onClick={() => { setMessages([]); setContext([]); }}
-            className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
+            className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 cursor-pointer"
           >
             🗑 Clear
           </button>
           <button
             onClick={() => addToast("info", "Export", "Chat exported to CSV")}
-            className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
+            className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 cursor-pointer"
           >
             📥 Export
           </button>
@@ -172,6 +215,11 @@ function ChatContent() {
                   {isBot && m.source && (
                     <span className="inline-flex items-center gap-1 bg-brand-50 text-brand-700 px-1.5 rounded text-[10px] font-semibold">
                       📎 {m.source}
+                    </span>
+                  )}
+                  {isBot && m.llm && (
+                    <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-1.5 rounded text-[10px] font-semibold">
+                      🧠 LLM
                     </span>
                   )}
                   {isBot && m.confidence && (
