@@ -11,7 +11,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 // ============================================================================
 
 function ChatContent() {
-  const { employee, settings, tickets, setTickets, addAudit } = useApp();
+  const { employee, settings, tickets, setTickets, addAudit, addNotification } = useApp();
   const toast = useToast();
 
   const [messages, setMessages] = useState([]);
@@ -105,9 +105,15 @@ function ChatContent() {
 
       if (resp.routing === "legal" || resp.routing === "hr") {
         toast("warning", "Ticket Escalated", `${ticket.id} routed to ${resp.routing === "legal" ? "Legal" : "HR"}`);
+        // -- Fire a real notification so the bell lights up --
+        addNotification(
+          `Ticket Escalated → ${resp.routing === "legal" ? "Legal" : "HR"}`,
+          `${employee.firstName} ${employee.lastName}: "${input.slice(0, 60)}${input.length > 60 ? '...' : ''}"`,
+          resp.riskScore >= 75 ? "critical" : "warning"
+        );
       }
     }, 800 + Math.random() * 600);
-  }, [input, employee, addAudit, setTickets, toast]);
+  }, [input, employee, addAudit, setTickets, toast, addNotification]);
 
   const suggestions = [
     "What's my PTO balance?",

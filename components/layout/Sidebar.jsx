@@ -2,27 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useApp } from '@/app/AppShell';
 
 // =============================================================================
-// SIDEBAR — Main navigation sidebar for the PolicyPilot AI platform
-// Uses Next.js Link for real page navigation between file-based routes.
-// Grouped nav: Core, Platform, Admin. Footer shows integration statuses.
+// SIDEBAR — Main navigation sidebar. Mode-aware: hides admin-only items
+// in employee mode. Integration footer synced with real context state.
 // =============================================================================
 
 // -- Navigation items organized by group --
-// Each item: { key (used for active matching), href (route path), icon, label, badge?, statusDot? }
 const NAV_GROUPS = [
   {
     label: 'Core',
+    adminOnly: false,
     items: [
       { key: 'dashboard',   href: '/',             icon: '📊', label: 'Dashboard' },
       { key: 'chat',        href: '/chat',         icon: '💬', label: 'AI Chat' },
-      { key: 'tickets',     href: '/tickets',      icon: '🎫', label: 'Ticket Queue', badge: 12 },
+      { key: 'tickets',     href: '/tickets',      icon: '🎫', label: 'Ticket Queue', badgeKey: 'tickets' },
       { key: 'documents',   href: '/documents',    icon: '📄', label: 'Documents' },
     ],
   },
   {
     label: 'Platform',
+    adminOnly: true,
     items: [
       { key: 'integrations', href: '/integrations', icon: '🔗', label: 'Integrations' },
       { key: 'policies',     href: '/policies',     icon: '📋', label: 'Policies & Jurisdictions' },
@@ -31,6 +32,7 @@ const NAV_GROUPS = [
   },
   {
     label: 'Admin',
+    adminOnly: true,
     items: [
       { key: 'audit',    href: '/audit',    icon: '🔍', label: 'Audit Log' },
       { key: 'settings', href: '/settings', icon: '⚙️', label: 'Settings' },
@@ -40,23 +42,40 @@ const NAV_GROUPS = [
   },
 ];
 
-// -- Integration statuses shown in the sidebar footer --
-const INTEGRATIONS = [
-  { name: 'BambooHR', status: 'Live',   color: 'bg-emerald-400' },
-  { name: 'Slack',    status: 'Live',   color: 'bg-emerald-400' },
-  { name: 'Greenhouse', status: 'Config', color: 'bg-amber-400' },
-];
+// -- Well-known integration display names --
+const INTEGRATION_LABELS = {
+  bamboohr: 'BambooHR',
+  workday: 'Workday',
+  adp: 'ADP',
+  gusto: 'Gusto',
+  slack: 'Slack',
+  teams: 'MS Teams',
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+};
 
-export default function Sidebar({ currentView }) {
-  // -- Determine active route from the URL pathname --
+export default function Sidebar() {
   const pathname = usePathname();
+  const { mode, tickets, integrations } = useApp();
 
-  // -- Helper: check if a nav item is the currently active page --
   function isActive(item) {
-    // Dashboard is special — it's at /
     if (item.href === '/') return pathname === '/';
     return pathname.startsWith(item.href);
   }
+
+  // -- Derive live integration statuses from context --
+  const liveIntegrations = Object.entries(integrations || {}).map(([id, cfg]) => ({
+    name: INTEGRATION_LABELS[id] || id,
+    status: cfg.connected ? 'Live' : 'Config',
+    color: cfg.connected ? 'bg-emerald-400' : 'bg-amber-400',
+  }));
+
+  // -- If no real integrations configured, show placeholder --
+  const displayIntegrations = liveIntegrations.length > 0
+    ? liveIntegrations.slice(0, 3)
+    : [
+        { name: 'No integrations', status: 'Setup →', color: 'bg-gray-500' },
+      ];
 
   return (
     <aside className="w-60 bg-gray-900 text-white flex flex-col h-screen flex-shrink-0">
@@ -75,17 +94,23 @@ export default function Sidebar({ currentView }) {
 
       {/* ============ Navigation groups ============ */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {NAV_GROUPS.map((group) => (
+        {NAV_GROUPS
+          // -- In employee mode, hide admin-only groups --
+          .filter((group) => !group.adminOnly || mode === 'admin')
+          .map((group) => (
           <div key={group.label}>
-            {/* Group label */}
             <p className="px-2 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
               {group.label}
             </p>
 
-            {/* Nav items within the group */}
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = isActive(item);
+                // -- Dynamic badge from real ticket count --
+                const badge = item.badgeKey === 'tickets' && tickets.length > 0
+                  ? tickets.length
+                  : null;
+
                 return (
                   <Link
                     key={item.key}
@@ -99,20 +124,15 @@ export default function Sidebar({ currentView }) {
                       }
                     `}
                   >
-                    {/* Icon emoji */}
                     <span className="text-base w-5 text-center flex-shrink-0">{item.icon}</span>
-
-                    {/* Label */}
                     <span className="flex-1 text-left truncate">{item.label}</span>
 
-                    {/* Optional badge count */}
-                    {item.badge != null && (
+                    {badge != null && (
                       <span className="px-1.5 py-0.5 text-[10px] font-bold bg-brand-500 text-white rounded-full min-w-[20px] text-center">
-                        {item.badge}
+                        {badge}
                       </span>
                     )}
 
-                    {/* Optional status dot (e.g., green = active) */}
                     {item.statusDot && (
                       <span className={`w-2 h-2 rounded-full ${
                         item.statusDot === 'green' ? 'bg-emerald-400' : 'bg-gray-500'
@@ -126,13 +146,13 @@ export default function Sidebar({ currentView }) {
         ))}
       </nav>
 
-      {/* ============ Footer — integration status indicators ============ */}
+      {/* ============ Footer — live integration status from context ============ */}
       <div className="px-4 py-4 border-t border-gray-800">
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
           Integrations
         </p>
         <div className="space-y-2">
-          {INTEGRATIONS.map((int) => (
+          {displayIntegrations.map((int) => (
             <div key={int.name} className="flex items-center gap-2 text-xs text-gray-400">
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${int.color}`} />
               <span className="flex-1">{int.name}</span>

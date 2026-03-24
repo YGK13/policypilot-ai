@@ -8,16 +8,21 @@ import { useState } from "react";
 // ============================================================================
 
 function TicketsContent() {
-  const { tickets } = useApp();
+  const { tickets, mode, employee } = useApp();
   const [filter, setFilter] = useState("all");
   const [viewMode, setViewMode] = useState("table");
 
-  const filtered = filter === "all" ? tickets : tickets.filter((t) => t.status === filter);
+  // -- Mode-aware: employee sees only their own tickets --
+  const baseTickets = mode === "employee"
+    ? tickets.filter((t) => t.employee === `${employee.firstName} ${employee.lastName}`)
+    : tickets;
+
+  const filtered = filter === "all" ? baseTickets : baseTickets.filter((t) => t.status === filter);
   const kanbanCols = [
-    { id: "open", label: "Open", color: "#3b82f6", items: tickets.filter((t) => t.routing === "auto_enhanced") },
-    { id: "pending", label: "Pending Review", color: "#f59e0b", items: tickets.filter((t) => t.status === "pending") },
-    { id: "escalated", label: "Escalated", color: "#ef4444", items: tickets.filter((t) => t.status === "escalated") },
-    { id: "resolved", label: "Resolved", color: "#10b981", items: tickets.filter((t) => t.status === "resolved") },
+    { id: "open", label: "Open", color: "#3b82f6", items: baseTickets.filter((t) => t.routing === "auto_enhanced") },
+    { id: "pending", label: "Pending Review", color: "#f59e0b", items: baseTickets.filter((t) => t.status === "pending") },
+    { id: "escalated", label: "Escalated", color: "#ef4444", items: baseTickets.filter((t) => t.status === "escalated") },
+    { id: "resolved", label: "Resolved", color: "#10b981", items: baseTickets.filter((t) => t.status === "resolved") },
   ];
 
   return (
