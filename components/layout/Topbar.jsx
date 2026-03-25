@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation';
 const VIEW_TITLES = {
   '/':             'Dashboard',
   '/chat':         'AI Chat',
+  '/self-service': 'Self-Service',
   '/tickets':      'Ticket Queue',
   '/documents':    'Documents',
   '/integrations': 'Integrations',
