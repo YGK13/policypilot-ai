@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useApp } from "../AppShell";
 import { useToast } from "@/components/layout/ToastProvider";
 import { genId } from "@/lib/utils";
@@ -50,6 +50,15 @@ function CasesContent() {
   const [showNewCase, setShowNewCase] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [newNote, setNewNote] = useState("");
+
+  // -- Audit: log access to sensitive case management page --
+  const hasLoggedAccess = useRef(false);
+  useEffect(() => {
+    if (mode !== "employee" && !hasLoggedAccess.current) {
+      hasLoggedAccess.current = true;
+      addAudit("CASE_PAGE_ACCESS", `${currentUser?.name} accessed Case Management`, "info");
+    }
+  }, [mode, currentUser, addAudit]);
 
   // -- New case form state --
   const [newCase, setNewCase] = useState({

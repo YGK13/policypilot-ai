@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, createContext, useContext } f
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import ToastProvider from "@/components/layout/ToastProvider";
+import RouteGuard from "@/components/layout/RouteGuard";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 
 // ============================================================================
@@ -242,6 +243,33 @@ export default function AppShell({ children }) {
     });
   }, [tickets, auditLog, integrations, settings, notifications, employee]);
 
+  // -- Session timeout: auto-logout after 30 minutes of inactivity --
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+  const timeoutRef = useRef(null);
+
+  const resetSessionTimer = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (!currentUser) return;
+    timeoutRef.current = setTimeout(() => {
+      setCurrentUser(null);
+      localStorage.removeItem(SESSION_KEY);
+      // State preserved — only session cleared
+    }, SESSION_TIMEOUT_MS);
+  }, [currentUser]);
+
+  // -- Reset timer on any user interaction --
+  useEffect(() => {
+    if (!currentUser) return;
+    const events = ["mousedown", "keydown", "scroll", "touchstart"];
+    const handler = () => resetSessionTimer();
+    events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
+    resetSessionTimer(); // start initial timer
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, handler));
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [currentUser, resetSessionTimer]);
+
   // -- Login handler --
   const handleLogin = useCallback((user) => {
     setCurrentUser(user);
@@ -361,7 +389,7 @@ export default function AppShell({ children }) {
               onClearAll={clearNotifications}
             />
             <main className="flex-1 overflow-y-auto bg-gray-50">
-              {children}
+              <RouteGuard>{children}</RouteGuard>
             </main>
           </div>
         </div>
