@@ -18,7 +18,7 @@ export function useApp() {
 }
 
 // -- localStorage helpers --
-const STORAGE_KEY = "policypilot_state";
+const STORAGE_KEY = "hrpilot_state";
 
 function loadState() {
   if (typeof window === "undefined") return null;

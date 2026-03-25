@@ -272,13 +272,13 @@ function IntegrationsContent() {
               <div className="flex items-center gap-2">
                 <input
                   readOnly
-                  value={`https://api.policypilot.ai/webhooks/${configModal.id}`}
+                  value={`https://api.hrpilot.ai/webhooks/${configModal.id}`}
                   className="flex-1 px-3 py-2 text-xs font-mono bg-gray-50 border border-gray-200 rounded-lg text-gray-500"
                 />
                 <button
                   onClick={() => {
                     navigator.clipboard?.writeText(
-                      `https://api.policypilot.ai/webhooks/${configModal.id}`
+                      `https://api.hrpilot.ai/webhooks/${configModal.id}`
                     );
                   }}
                   className="px-3 py-2 text-xs font-semibold text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors"

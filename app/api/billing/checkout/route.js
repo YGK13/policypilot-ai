@@ -43,7 +43,7 @@ export async function POST(request) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `PolicyPilot AI — ${planName}`,
+              name: `HRPilot AI — ${planName}`,
               description: `${planName} plan subscription`,
             },
             unit_amount: priceInCents,

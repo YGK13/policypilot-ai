@@ -84,7 +84,7 @@ export default function Sidebar() {
       <div className="px-5 py-5 border-b border-gray-800">
         <Link href="/" className="flex items-center gap-2 no-underline">
           <span className="text-xl">⚡</span>
-          <span className="text-base font-bold tracking-tight text-white">PolicyPilot</span>
+          <span className="text-base font-bold tracking-tight text-white">HRPilot</span>
           <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-brand-500 rounded text-white uppercase tracking-wider">
             AI
           </span>

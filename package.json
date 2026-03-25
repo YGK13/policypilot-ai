@@ -1,8 +1,8 @@
 {
-  "name": "policypilot-ai",
+  "name": "hrpilot-ai",
   "version": "1.0.0",
   "private": true,
-  "description": "PolicyPilot AI — Enterprise HR Intelligence Platform",
+  "description": "HRPilot AI — Enterprise HR Intelligence Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

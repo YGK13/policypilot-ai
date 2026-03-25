@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "PolicyPilot AI | Enterprise HR Intelligence Platform",
+  title: "HRPilot AI | Enterprise HR Intelligence Platform",
   description: "AI-powered HR policy & benefits chatbot with triage capability",
 };
 
