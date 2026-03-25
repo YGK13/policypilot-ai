@@ -26,12 +26,11 @@ function DocumentsContent() {
   const { addAudit, mode } = useApp();
   const [search, setSearch] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  // -- Local uploads state (merged with demo docs for display) --
-  const [uploadedDocs, setUploadedDocs] = useState([]);
+  // -- All docs in one state: starts with demo docs, uploads get appended --
+  const [docs, setDocs] = useState(() => [...DEMO_DOCS]);
   const fileInputRef = useRef(null);
 
-  // -- All docs = demo + uploaded --
-  const allDocs = [...DEMO_DOCS, ...uploadedDocs];
+  const allDocs = docs;
 
   // -- Filter by search --
   const filtered = allDocs.filter((d) => {
@@ -66,7 +65,7 @@ function DocumentsContent() {
         }),
       }));
 
-      setUploadedDocs((prev) => [...prev, ...newDocs]);
+      setDocs((prev) => [...prev, ...newDocs]);
       addAudit(
         "DOCUMENT_UPLOAD",
         `Uploaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`,
@@ -104,11 +103,11 @@ function DocumentsContent() {
     [processFiles]
   );
 
-  // -- Delete an uploaded document --
+  // -- Delete any document (admin only) --
   const handleDelete = useCallback(
-    (docId) => {
-      setUploadedDocs((prev) => prev.filter((d) => d.id !== docId));
-      addAudit("DOCUMENT_DELETE", `Deleted document ${docId}`, "warning");
+    (docId, docName) => {
+      setDocs((prev) => prev.filter((d) => d.id !== docId));
+      addAudit("DOCUMENT_DELETE", `Deleted document: ${docName}`, "warning");
     },
     [addAudit]
   );
@@ -167,8 +166,8 @@ function DocumentsContent() {
         </div>
         <span className="text-xs text-gray-400 font-medium">
           {filtered.length} document{filtered.length !== 1 ? "s" : ""}
-          {uploadedDocs.length > 0 && (
-            <span className="text-brand-600 ml-1">({uploadedDocs.length} uploaded)</span>
+          {docs.length > DEMO_DOCS.length && (
+            <span className="text-brand-600 ml-1">({docs.length - DEMO_DOCS.length} uploaded)</span>
           )}
         </span>
       </div>
@@ -231,17 +230,15 @@ function DocumentsContent() {
                     <td className="px-3.5 py-2.5 text-xs text-gray-400">
                       {doc.uploaded}
                     </td>
-                    {/* Admin: delete button for uploaded docs */}
+                    {/* Admin: delete button for ANY document */}
                     {mode === "admin" && (
                       <td className="px-3.5 py-2.5">
-                        {doc.id.startsWith("upload-") && (
-                          <button
-                            onClick={() => handleDelete(doc.id)}
-                            className="text-xs text-danger-600 hover:text-danger-700 cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDelete(doc.id, doc.name)}
+                          className="text-xs text-danger-600 hover:text-danger-700 cursor-pointer"
+                        >
+                          Remove
+                        </button>
                       </td>
                     )}
                   </tr>

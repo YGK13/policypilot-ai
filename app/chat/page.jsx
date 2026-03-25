@@ -248,14 +248,40 @@ function ChatContent() {
                     {m.disclaimer}
                   </div>
                 )}
-                {isBot && (
+                {isBot && m.id !== "welcome" && (
                   <div className="flex gap-1.5 mt-1.5">
-                    <button onClick={() => addToast("success", "Thanks!", "Feedback recorded")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                      👍
-                    </button>
-                    <button onClick={() => addToast("info", "Noted", "We'll improve this")} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                      👎
-                    </button>
+                    {m.rated ? (
+                      <span className="text-[10px] text-gray-400 italic">
+                        {m.rated === "up" ? "👍 Helpful" : "👎 Not helpful"} — thanks!
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            // Mark this message as rated
+                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, rated: "up" } : msg));
+                            // Update satisfaction on the corresponding ticket
+                            setTickets(prev => prev.map((t, idx) => idx === 0 && t.satisfaction == null ? { ...t, satisfaction: 5 } : t));
+                            addToast("success", "Thanks!", "Positive feedback recorded");
+                            addAudit("CSAT_POSITIVE", `Thumbs up on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "info");
+                          }}
+                          className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-green-50 hover:text-green-600 cursor-pointer transition-colors"
+                        >
+                          👍
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, rated: "down" } : msg));
+                            setTickets(prev => prev.map((t, idx) => idx === 0 && t.satisfaction == null ? { ...t, satisfaction: 1 } : t));
+                            addToast("info", "Noted", "We'll improve this response");
+                            addAudit("CSAT_NEGATIVE", `Thumbs down on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "warning");
+                          }}
+                          className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
+                        >
+                          👎
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
