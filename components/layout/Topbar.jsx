@@ -23,6 +23,7 @@ const VIEW_TITLES = {
   '/settings':     'Settings',
   '/billing':      'Billing & Plans',
   '/api-keys':     'API Keys',
+  '/onboarding':   'Setup Wizard',
 };
 
 export default function Topbar({
