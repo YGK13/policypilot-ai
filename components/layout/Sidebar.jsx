@@ -58,7 +58,7 @@ const INTEGRATION_LABELS = {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { mode, tickets, integrations } = useApp();
+  const { canAccess, tickets, integrations } = useApp();
 
   function isActive(item) {
     if (item.href === '/') return pathname === '/';
@@ -94,8 +94,8 @@ export default function Sidebar() {
       {/* ============ Navigation groups ============ */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
         {NAV_GROUPS
-          // -- In employee mode, hide admin-only groups --
-          .filter((group) => !group.adminOnly || mode === 'admin')
+          // -- Filter groups: only show if user can access at least one item --
+          .filter((group) => group.items.some((item) => canAccess(item.href)))
           .map((group) => (
           <div key={group.label}>
             <p className="px-2 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
@@ -103,7 +103,7 @@ export default function Sidebar() {
             </p>
 
             <div className="space-y-0.5">
-              {group.items.map((item) => {
+              {group.items.filter((item) => canAccess(item.href)).map((item) => {
                 const active = isActive(item);
                 // -- Dynamic badge from real ticket count --
                 const badge = item.badgeKey === 'tickets' && tickets.length > 0

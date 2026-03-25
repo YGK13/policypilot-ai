@@ -2,14 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { ROLES } from '@/app/AppShell';
 
 // =============================================================================
-// TOPBAR — Top navigation bar for the AI HR Pilot platform
-// Shows: view title, Employee/Admin mode toggle, employee dropdown,
-// notification bell with real notification panel, and dynamic user avatar.
+// TOPBAR — No mode toggle. Shows: view title, employee context (admin only),
+// notification bell, user avatar with role badge, and logout button.
 // =============================================================================
 
-// -- Human-readable titles keyed by first pathname segment --
 const VIEW_TITLES = {
   '/':             'Dashboard',
   '/chat':         'AI Chat',
@@ -27,12 +26,11 @@ const VIEW_TITLES = {
 };
 
 export default function Topbar({
-  mode,
-  onModeChange,
+  currentUser,
   employee,
   employees = [],
   onEmployeeChange,
-  // Notification props from AppShell context (passed by layout)
+  onLogout,
   notifications = [],
   onMarkRead,
   onClearAll,
@@ -42,8 +40,9 @@ export default function Topbar({
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef(null);
 
-  // -- Count unread notifications --
+  const role = ROLES[currentUser?.role] || ROLES.employee;
   const unreadCount = notifications.filter(n => !n.read).length;
+  const isAdmin = currentUser?.role !== 'employee';
 
   // -- Close dropdown on outside click --
   useEffect(() => {
@@ -56,14 +55,6 @@ export default function Topbar({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifs]);
 
-  // -- Dynamic user initials from current employee --
-  const initials = employee
-    ? `${employee.firstName?.[0] || ''}${employee.lastName?.[0] || ''}`
-    : 'AH';
-  const displayName = employee
-    ? `${employee.firstName} ${employee.lastName?.[0]}.`
-    : 'AI HR Pilot';
-
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
 
@@ -73,56 +64,31 @@ export default function Topbar({
       {/* ============ Right — Controls cluster ============ */}
       <div className="flex items-center gap-4">
 
-        {/* -- Employee / Admin mode switch -- */}
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 text-xs font-medium">
-          <button
-            onClick={() => onModeChange('employee')}
-            className={`
-              px-3 py-1.5 rounded-md transition-colors cursor-pointer
-              ${mode === 'employee'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            Employee
-          </button>
-          <button
-            onClick={() => onModeChange('admin')}
-            className={`
-              px-3 py-1.5 rounded-md transition-colors cursor-pointer
-              ${mode === 'admin'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            Admin
-          </button>
-        </div>
-
-        {/* -- Employee dropdown selector (admin mode shows all, employee mode shows current) -- */}
-        {mode === 'admin' && employees.length > 0 && (
-          <select
-            value={employee?.id || ''}
-            onChange={(e) => onEmployeeChange(e.target.value)}
-            className="
-              text-sm text-gray-700 bg-white border border-gray-200 rounded-lg
-              px-3 py-1.5
-              focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400
-              cursor-pointer
-            "
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.firstName} {emp.lastName} — {emp.state}
-              </option>
-            ))}
-          </select>
+        {/* -- Employee context selector (admin/hr_staff/legal only) -- */}
+        {isAdmin && employees.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase">Viewing as:</span>
+            <select
+              value={employee?.id || ''}
+              onChange={(e) => onEmployeeChange(e.target.value)}
+              className="
+                text-sm text-gray-700 bg-white border border-gray-200 rounded-lg
+                px-3 py-1.5
+                focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400
+                cursor-pointer
+              "
+            >
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.firstName} {emp.lastName} — {emp.state}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
-        {/* -- Employee mode: show current employee label instead of dropdown -- */}
-        {mode === 'employee' && employee && (
+        {/* -- Employee mode: show own name -- */}
+        {!isAdmin && employee && (
           <span className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
             {employee.firstName} {employee.lastName} — {employee.department}
           </span>
@@ -149,7 +115,6 @@ export default function Topbar({
             )}
           </button>
 
-          {/* -- Notification dropdown panel -- */}
           {showNotifs && (
             <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -198,15 +163,24 @@ export default function Topbar({
           )}
         </div>
 
-        {/* -- User avatar pill (dynamic from current employee) -- */}
+        {/* -- User avatar + role badge + logout -- */}
         <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-          <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">
-            {initials}
+          <div className={`w-8 h-8 rounded-full ${role.color} flex items-center justify-center text-white text-xs font-bold`}>
+            {currentUser?.initials || '??'}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-gray-900 leading-tight">{displayName}</p>
-            <p className="text-[11px] text-gray-500 leading-tight capitalize">{mode}</p>
+            <p className="text-sm font-medium text-gray-900 leading-tight">{currentUser?.name}</p>
+            <p className="text-[10px] text-gray-500 leading-tight">{role.label}</p>
           </div>
+          <button
+            onClick={onLogout}
+            className="ml-1 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            title="Sign out"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+          </button>
         </div>
       </div>
     </header>

@@ -43,7 +43,7 @@ const STATUS_COLORS = {
 };
 
 function CasesContent() {
-  const { employee, mode, addAudit, addNotification } = useApp();
+  const { employee, mode, currentUser, addAudit, addNotification } = useApp();
   const { addToast } = useToast();
 
   const [cases, setCases] = useState([]);
