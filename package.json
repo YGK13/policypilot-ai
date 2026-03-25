@@ -1,8 +1,8 @@
 {
-  "name": "hrpilot-ai",
+  "name": "aihrpilot",
   "version": "1.0.0",
   "private": true,
-  "description": "HRPilot AI — Enterprise HR Intelligence Platform",
+  "description": "AI HR Pilot — Enterprise HR Intelligence Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -67,7 +67,7 @@ function AuditContent() {
           <div className="text-4xl mb-3">{"\u{1F4DD}"}</div>
           <h3 className="text-sm font-semibold text-gray-600 mb-1">No audit events yet</h3>
           <p className="text-xs text-gray-400">
-            Events will appear here as you interact with HRPilot AI
+            Events will appear here as you interact with AI HR Pilot
           </p>
         </div>
       ) : (

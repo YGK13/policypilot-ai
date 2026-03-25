@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
 // =============================================================================
-// TOPBAR — Top navigation bar for the HRPilot AI platform
+// TOPBAR — Top navigation bar for the AI HR Pilot platform
 // Shows: view title, Employee/Admin mode toggle, employee dropdown,
 // notification bell with real notification panel, and dynamic user avatar.
 // =============================================================================
@@ -36,7 +36,7 @@ export default function Topbar({
   onClearAll,
 }) {
   const pathname = usePathname();
-  const title = VIEW_TITLES[pathname] || 'HRPilot AI';
+  const title = VIEW_TITLES[pathname] || 'AI HR Pilot';
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef(null);
 
@@ -57,10 +57,10 @@ export default function Topbar({
   // -- Dynamic user initials from current employee --
   const initials = employee
     ? `${employee.firstName?.[0] || ''}${employee.lastName?.[0] || ''}`
-    : 'PP';
+    : 'AH';
   const displayName = employee
     ? `${employee.firstName} ${employee.lastName?.[0]}.`
-    : 'HRPilot';
+    : 'AI HR Pilot';
 
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">

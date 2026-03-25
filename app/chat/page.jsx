@@ -28,7 +28,7 @@ function ChatContent() {
       {
         id: "welcome",
         type: "bot",
-        content: `Hi ${employee.firstName}! I'm HRPilot AI, your HR assistant.\n\nI can help with PTO, benefits, compensation, policies, compliance, and more.\n\nYou're based in <strong>${employee.location}</strong> — I'll provide ${employee.state}-specific answers when relevant.`,
+        content: `Hi ${employee.firstName}! I'm AI HR Pilot, your HR assistant.\n\nI can help with PTO, benefits, compensation, policies, compliance, and more.\n\nYou're based in <strong>${employee.location}</strong> — I'll provide ${employee.state}-specific answers when relevant.`,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         confidence: 100,
         source: "System",
@@ -163,7 +163,7 @@ function ChatContent() {
           ⚡
         </div>
         <div>
-          <div className="text-sm font-semibold text-gray-900">HRPilot AI</div>
+          <div className="text-sm font-semibold text-gray-900">AI HR Pilot</div>
           <div className="text-xs text-gray-400">
             Jurisdiction: {employee.state} | Confidence threshold: {settings.confidenceThreshold}%
           </div>

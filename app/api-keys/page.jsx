@@ -52,7 +52,7 @@ const INITIAL_KEYS = [
 ];
 
 // -- cURL quick-start example --
-const CURL_EXAMPLE = `curl -X POST https://api.hrpilot.ai/v1/query \\
+const CURL_EXAMPLE = `curl -X POST https://api.aihrpilot.com/v1/query \\
   -H "Authorization: Bearer pp_live_YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -230,7 +230,7 @@ function ApiKeysContent() {
           {"\u{1F680}"} REST API Quick Start
         </h3>
         <p className="text-xs text-gray-500 mb-3">
-          Use your API key to query HRPilot programmatically. All responses include
+          Use your API key to query AI HR Pilot programmatically. All responses include
           jurisdiction-specific compliance data.
         </p>
         <div className="relative">

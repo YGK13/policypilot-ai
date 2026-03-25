@@ -178,7 +178,7 @@ function BillingContent() {
         <div className="space-y-3 text-xs text-gray-600">
           <div>
             <p className="font-semibold text-gray-700">Can I cancel anytime?</p>
-            <p>Yes. Cancel from Settings or email billing@hrpilot.ai. No cancellation fees.</p>
+            <p>Yes. Cancel from Settings or email billing@aihrpilot.com. No cancellation fees.</p>
           </div>
           <div>
             <p className="font-semibold text-gray-700">What payment methods are accepted?</p>

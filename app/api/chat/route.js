@@ -17,7 +17,7 @@ import POLICIES from "@/lib/data/policies";
 // MODE 2 (local): No API key → keyword-matching policy engine only.
 //
 // NOTE: This uses @ai-sdk/anthropic directly (not AI Gateway) because
-// HRPilot is a self-hosted product — customers bring their own API keys.
+// AI HR Pilot is a self-hosted product — customers bring their own API keys.
 // For Vercel-hosted deployments, swap to AI Gateway with OIDC auth.
 // ============================================================================
 
@@ -53,7 +53,7 @@ function buildPolicyCatalog() {
 
 // -- System prompt for Claude --
 function buildSystemPrompt(employee) {
-  return `You are HRPilot AI, an expert HR policy assistant for enterprise organizations.
+  return `You are AI HR Pilot, an expert HR policy assistant for enterprise organizations.
 
 ## Your Role
 - Answer employee HR questions accurately based on company policies and applicable employment law.
@@ -135,7 +135,7 @@ export async function POST(request) {
 
         return NextResponse.json({
           answer: text,
-          source: localResponse.source || "HRPilot AI (LLM)",
+          source: localResponse.source || "AI HR Pilot (LLM)",
           category: localResponse.category,
           riskScore: localResponse.riskScore,
           routing: localResponse.routing,
