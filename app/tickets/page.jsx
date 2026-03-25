@@ -18,10 +18,11 @@ function TicketsContent() {
     : tickets;
 
   const filtered = filter === "all" ? baseTickets : baseTickets.filter((t) => t.status === filter);
+  // -- Kanban columns based on ticket STATUS (not routing) --
   const kanbanCols = [
-    { id: "open", label: "Open", color: "#3b82f6", items: baseTickets.filter((t) => t.routing === "auto_enhanced") },
-    { id: "pending", label: "Pending Review", color: "#f59e0b", items: baseTickets.filter((t) => t.status === "pending") },
-    { id: "escalated", label: "Escalated", color: "#ef4444", items: baseTickets.filter((t) => t.status === "escalated") },
+    { id: "resolved", label: "Auto-Resolved", color: "#10b981", items: baseTickets.filter((t) => t.status === "resolved") },
+    { id: "pending", label: "Pending HR Review", color: "#f59e0b", items: baseTickets.filter((t) => t.status === "pending") },
+    { id: "escalated", label: "Escalated to Legal", color: "#ef4444", items: baseTickets.filter((t) => t.status === "escalated") },
     { id: "resolved", label: "Resolved", color: "#10b981", items: baseTickets.filter((t) => t.status === "resolved") },
   ];
 

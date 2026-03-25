@@ -112,33 +112,29 @@ function CasesContent() {
   // -- Add note to a case --
   const addCaseNote = useCallback(() => {
     if (!newNote.trim() || !selectedCase) return;
+    const noteObj = {
+      id: `NOTE-${Date.now()}`,
+      text: newNote,
+      author: `${employee.firstName} ${employee.lastName}`,
+      timestamp: new Date().toISOString(),
+      type: "note",
+    };
+    // -- Update cases array --
     setCases((prev) =>
       prev.map((c) =>
         c.id === selectedCase.id
-          ? {
-              ...c,
-              notes: [
-                ...c.notes,
-                {
-                  id: `NOTE-${Date.now()}`,
-                  text: newNote,
-                  author: `${employee.firstName} ${employee.lastName}`,
-                  timestamp: new Date().toISOString(),
-                  type: "note",
-                },
-              ],
-            }
+          ? { ...c, notes: [...c.notes, noteObj] }
           : c
       )
     );
+    // -- Directly update selectedCase (don't search stale array) --
+    setSelectedCase((prev) => ({
+      ...prev,
+      notes: [...prev.notes, noteObj],
+    }));
     addAudit("CASE_NOTE", `Note added to ${selectedCase.id}`, "info");
     setNewNote("");
-    // Refresh selectedCase reference
-    setSelectedCase((prev) => {
-      const updated = cases.find((c) => c.id === prev?.id);
-      return updated ? { ...updated, notes: [...updated.notes, { id: `NOTE-${Date.now()}`, text: newNote, author: `${employee.firstName} ${employee.lastName}`, timestamp: new Date().toISOString(), type: "note" }] } : prev;
-    });
-  }, [newNote, selectedCase, employee, addAudit, cases]);
+  }, [newNote, selectedCase, employee, addAudit]);
 
   // -- Update case status --
   const updateStatus = useCallback((caseId, newStatus) => {
@@ -162,6 +158,18 @@ function CasesContent() {
           : c
       )
     );
+    // -- Update selectedCase if it's the one being updated --
+    const statusNote = {
+      id: `NOTE-${Date.now()}`,
+      text: `Status changed to: ${newStatus.replace(/_/g, " ")}`,
+      author: `${employee.firstName} ${employee.lastName}`,
+      timestamp: new Date().toISOString(),
+      type: "system",
+    };
+    setSelectedCase((prev) => {
+      if (prev?.id !== caseId) return prev;
+      return { ...prev, status: newStatus, notes: [...prev.notes, statusNote] };
+    });
     addAudit("CASE_STATUS", `${caseId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
   }, [employee, addAudit]);
 

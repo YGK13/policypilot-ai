@@ -15,15 +15,31 @@ function ChatContent() {
   const { employee, settings, tickets, setTickets, addAudit, addNotification } = useApp();
   const { addToast } = useToast();
 
-  const [messages, setMessages] = useState([]);
+  // -- Persist chat messages in sessionStorage so they survive page navigation --
+  const CHAT_KEY = `aihrpilot_chat_${employee.id}`;
+  const [messages, setMessages] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem(CHAT_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [context, setContext] = useState([]);
-  const [llmEnabled, setLlmEnabled] = useState(true); // try LLM first
+  const [llmEnabled, setLlmEnabled] = useState(true);
   const chatEndRef = useRef(null);
 
-  // -- Welcome message on employee change --
+  // -- Save messages to sessionStorage on change --
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem(CHAT_KEY, JSON.stringify(messages)); } catch {}
+  }, [messages, CHAT_KEY]);
+
+  // -- Welcome message on employee change (only if no saved messages) --
+  useEffect(() => {
+    if (messages.length > 0 && messages[0]?.id === "welcome") return; // already has welcome
+    if (messages.length > 0) return; // has saved conversation
     setMessages([
       {
         id: "welcome",
@@ -35,7 +51,7 @@ function ChatContent() {
       },
     ]);
     setContext([]);
-  }, [employee]);
+  }, [employee, messages.length]);
 
   // -- Auto-scroll --
   useEffect(() => {
@@ -45,6 +61,9 @@ function ChatContent() {
   // -- Process a response (shared between LLM and local paths) --
   const processResponse = useCallback((resp, q) => {
     const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // -- Generate ticket ID first so we can link it to the bot message --
+    const ticketId = genId();
 
     setMessages((prev) => [
       ...prev,
@@ -62,13 +81,14 @@ function ChatContent() {
         confidence: resp.confidence,
         policyId: resp.policyId,
         llm: resp.llm || false,
+        ticketId, // link to the ticket created from this response
       },
     ]);
 
     // -- Auto-create ticket --
     const nowFull = new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     const ticket = {
-      id: genId(),
+      id: ticketId,
       query: q,
       category: resp.category,
       riskScore: resp.riskScore,
@@ -182,7 +202,7 @@ function ChatContent() {
             {llmEnabled ? "🧠 LLM" : "📋 Local"}
           </button>
           <button
-            onClick={() => { setMessages([]); setContext([]); }}
+            onClick={() => { setMessages([]); setContext([]); try { sessionStorage.removeItem(CHAT_KEY); } catch {} }}
             className="px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 cursor-pointer"
           >
             🗑 Clear
@@ -260,8 +280,8 @@ function ChatContent() {
                           onClick={() => {
                             // Mark this message as rated
                             setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, rated: "up" } : msg));
-                            // Update satisfaction on the corresponding ticket
-                            setTickets(prev => prev.map((t, idx) => idx === 0 && t.satisfaction == null ? { ...t, satisfaction: 5 } : t));
+                            // Update satisfaction on the CORRECT ticket (matched by ID)
+                            setTickets(prev => prev.map(t => t.id === m.ticketId ? { ...t, satisfaction: 5 } : t));
                             addToast("success", "Thanks!", "Positive feedback recorded");
                             addAudit("CSAT_POSITIVE", `Thumbs up on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "info");
                           }}
@@ -272,7 +292,7 @@ function ChatContent() {
                         <button
                           onClick={() => {
                             setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, rated: "down" } : msg));
-                            setTickets(prev => prev.map((t, idx) => idx === 0 && t.satisfaction == null ? { ...t, satisfaction: 1 } : t));
+                            setTickets(prev => prev.map(t => t.id === m.ticketId ? { ...t, satisfaction: 1 } : t));
                             addToast("info", "Noted", "We'll improve this response");
                             addAudit("CSAT_NEGATIVE", `Thumbs down on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "warning");
                           }}
