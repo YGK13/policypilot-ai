@@ -26,6 +26,7 @@ const NAV_GROUPS = [
     label: 'Platform',
     adminOnly: true,
     items: [
+      { key: 'cases',         href: '/cases',         icon: '🔒', label: 'Case Management' },
       { key: 'integrations', href: '/integrations', icon: '🔗', label: 'Integrations' },
       { key: 'policies',     href: '/policies',     icon: '📋', label: 'Policies & Jurisdictions' },
       { key: 'analytics',    href: '/analytics',    icon: '📈', label: 'Analytics' },

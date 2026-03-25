@@ -14,6 +14,7 @@ const VIEW_TITLES = {
   '/':             'Dashboard',
   '/chat':         'AI Chat',
   '/self-service': 'Self-Service',
+  '/cases':        'Case Management',
   '/tickets':      'Ticket Queue',
   '/documents':    'Documents',
   '/integrations': 'Integrations',
