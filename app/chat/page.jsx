@@ -5,6 +5,7 @@ import { useApp } from "../AppShell";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { genId } from "@/lib/utils";
 import { useToast } from "@/components/layout/ToastProvider";
+import DOMPurify from "dompurify";
 
 // ============================================================================
 // CHAT PAGE — AI conversation with jurisdiction-aware responses
@@ -12,7 +13,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 // ============================================================================
 
 function ChatContent() {
-  const { employee, settings, tickets, setTickets, addAudit, addNotification } = useApp();
+  const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser } = useApp();
   const { addToast } = useToast();
 
   // -- Persist chat messages in sessionStorage so they survive page navigation --
@@ -140,7 +141,10 @@ function ChatContent() {
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-session-token": currentUser?.id || "demo",
+          },
           body: JSON.stringify({
             query: q,
             employee_id: employee.id,
@@ -228,7 +232,7 @@ function ChatContent() {
               <div className="max-w-[65%]">
                 <div
                   className={`px-4 py-3 rounded-xl text-[13px] leading-[1.7] ${isBot ? "bg-white border border-gray-200 rounded-bl-sm" : "bg-gradient-to-br from-brand-500 to-brand-700 text-white rounded-br-sm"}`}
-                  dangerouslySetInnerHTML={{ __html: m.content }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.content) }}
                 />
                 <div className={`flex items-center gap-1.5 mt-1 text-[10px] text-gray-400 flex-wrap ${m.type === "user" ? "justify-end" : ""}`}>
                   <span>{m.time}</span>

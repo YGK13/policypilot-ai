@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
     "ai": "^6.0.138",
+    "dompurify": "^3.3.3",
     "next": "^16.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

@@ -91,9 +91,9 @@ export const DEMO_USERS = [
   { id: "user-admin", name: "Yuri Kruman", email: "yuri@aihrpilot.com", role: "hr_admin", employeeId: null, initials: "YK" },
   { id: "user-hrstaff", name: "Sarah Chen", email: "sarah.chen@company.com", role: "hr_staff", employeeId: null, initials: "SC" },
   { id: "user-legal", name: "David Marcus", email: "david.marcus@company.com", role: "legal", employeeId: null, initials: "DM" },
-  { id: "user-emp-jane", name: "Jane Doe", email: "jane.doe@company.com", role: "employee", employeeId: "emp-001", initials: "JD" },
-  { id: "user-emp-michael", name: "Michael Chen", email: "michael.chen@company.com", role: "employee", employeeId: "emp-002", initials: "MC" },
-  { id: "user-emp-priya", name: "Priya Sharma", email: "priya.sharma@company.com", role: "employee", employeeId: "emp-003", initials: "PS" },
+  { id: "user-emp-jane", name: "Jane Doe", email: "jane.doe@company.com", role: "employee", employeeId: "EMP001", initials: "JD" },
+  { id: "user-emp-michael", name: "Michael Chen", email: "michael.chen@company.com", role: "employee", employeeId: "EMP002", initials: "MC" },
+  { id: "user-emp-priya", name: "Priya Sharma", email: "priya.sharma@company.com", role: "employee", employeeId: "EMP003", initials: "PS" },
 ];
 
 // ============================================================================

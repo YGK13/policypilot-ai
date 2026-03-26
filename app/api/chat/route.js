@@ -92,6 +92,18 @@ ${buildPolicyCatalog()}
 
 export async function POST(request) {
   try {
+    // -- Auth check: require a session token or API key --
+    // In production, validate against Clerk session or API key database.
+    // For demo: check for the X-Session-Token header (set by client on login).
+    const sessionToken = request.headers.get("x-session-token");
+    const apiKey = request.headers.get("x-api-key");
+    if (!sessionToken && !apiKey) {
+      return NextResponse.json(
+        { error: "Authentication required. Provide x-session-token or x-api-key header." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { query, employee_id, jurisdiction, use_llm } = body;
 
