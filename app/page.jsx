@@ -15,7 +15,7 @@ import POLICIES from "@/lib/data/policies";
 // ============================================================================
 
 function DashboardContent() {
-  const { tickets, employee, mode, settings } = useApp();
+  const { tickets, employee, mode, settings, currentUser } = useApp();
 
   // -- Policy Freshness Score: 0-100 based on how many policies need review --
   const policyFreshness = useMemo(() => {
@@ -165,8 +165,8 @@ function DashboardContent() {
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
-      {/* -- Onboarding prompt for first-time admins -- */}
-      {!settings.onboardingComplete && (
+      {/* -- Onboarding prompt for HR Admins only -- */}
+      {!settings.onboardingComplete && currentUser?.role === "hr_admin" && (
         <div className="mb-5 bg-gradient-to-r from-brand-600 to-brand-700 rounded-xl p-5 text-white flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold mb-1">Complete Your Setup</h3>

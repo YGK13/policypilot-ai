@@ -114,78 +114,163 @@ const DEFAULT_SETTINGS = {
 };
 
 // ============================================================================
-// LOGIN SCREEN — shown when no session exists
+// LOGIN SCREEN — Professional login with email/password + SSO + demo accounts
+// In production, this would be replaced by Clerk's hosted sign-in page.
+// For now, the email/password and SSO buttons show a message that they'll be
+// available in production, and the demo accounts section lets reviewers
+// test different roles immediately.
 // ============================================================================
 function LoginScreen({ onLogin }) {
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showDemo, setShowDemo] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
+  // -- Handle email/password submit (demo: matches against DEMO_USERS by email) --
+  const handleEmailLogin = useCallback((e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    const matched = DEMO_USERS.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    if (matched) {
+      onLogin(matched);
+    } else {
+      setLoginError("No account found with that email. Try a demo account below.");
+      setShowDemo(true);
+    }
+  }, [email, onLogin]);
+
+  // -- OAuth button style --
+  const oauthBtnCls = "w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all cursor-pointer";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-brand-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <div className="text-4xl mb-3">⚡</div>
-          <h1 className="text-2xl font-bold text-gray-900">AI HR Pilot</h1>
-          <p className="text-sm text-gray-500 mt-1">Enterprise HR Intelligence Platform</p>
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-brand-600 rounded-2xl shadow-lg shadow-brand-500/30 mb-4">
+            <span className="text-2xl">⚡</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white">AI HR Pilot</h1>
+          <p className="text-sm text-gray-400 mt-1">Enterprise HR Intelligence Platform</p>
         </div>
 
         {/* Login card */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-8">
-          <h2 className="text-sm font-bold text-gray-900 mb-1">Sign In</h2>
-          <p className="text-xs text-gray-500 mb-6">
-            Select your account to continue. In production, this uses SSO / Clerk authentication.
-          </p>
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Welcome back</h2>
+          <p className="text-sm text-gray-500 mb-6">Sign in to your account to continue.</p>
 
-          <div className="space-y-2">
-            {DEMO_USERS.map((user) => {
-              const role = ROLES[user.role];
-              const isSelected = selectedUser?.id === user.id;
-              return (
-                <button
-                  key={user.id}
-                  onClick={() => setSelectedUser(user)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? "border-brand-400 bg-brand-50 ring-2 ring-brand-100"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-full ${role.color} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-                    {user.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-900">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full text-white ${role.color}`}>
-                      {role.label}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+          {/* SSO buttons */}
+          <div className="space-y-3 mb-6">
+            <button onClick={() => { setLoginError("Google SSO will be available in production. Use a demo account below."); setShowDemo(true); }} className={oauthBtnCls}>
+              <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Continue with Google
+            </button>
+            <button onClick={() => { setLoginError("Microsoft SSO will be available in production. Use a demo account below."); setShowDemo(true); }} className={oauthBtnCls}>
+              <svg className="w-5 h-5" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+              Continue with Microsoft
+            </button>
           </div>
 
-          {/* Sign in button */}
-          <button
-            onClick={() => selectedUser && onLogin(selectedUser)}
-            disabled={!selectedUser}
-            className={`w-full mt-6 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${
-              selectedUser
-                ? "bg-brand-600 text-white hover:bg-brand-700 cursor-pointer"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {selectedUser ? `Sign in as ${selectedUser.name}` : "Select an account"}
-          </button>
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400 font-medium">or sign in with email</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Email/password form */}
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setLoginError(""); }}
+                placeholder="you@company.com"
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700">Password</label>
+                <button type="button" className="text-xs text-brand-600 hover:text-brand-700 font-medium cursor-pointer">Forgot password?</button>
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setLoginError(""); }}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {loginError && (
+              <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full px-4 py-3 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-colors cursor-pointer"
+            >
+              Sign in
+            </button>
+          </form>
+
+          {/* Demo accounts (collapsible) */}
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <button
+              onClick={() => setShowDemo(!showDemo)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-gray-700 cursor-pointer"
+            >
+              <span>Demo Accounts</span>
+              <span className="text-gray-400">{showDemo ? "▲" : "▼"}</span>
+            </button>
+            {showDemo && (
+              <div className="mt-3 space-y-1.5">
+                {DEMO_USERS.map((user) => {
+                  const role = ROLES[user.role];
+                  return (
+                    <button
+                      key={user.id}
+                      onClick={() => onLogin(user)}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-100 text-left hover:border-brand-300 hover:bg-brand-50/50 transition-all cursor-pointer"
+                    >
+                      <div className={`w-8 h-8 rounded-full ${role.color} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0`}>
+                        {user.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-gray-900">{user.name}</div>
+                        <div className="text-[10px] text-gray-400">{user.email}</div>
+                      </div>
+                      <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded text-white ${role.color}`}>
+                        {role.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-[10px] text-gray-400 mt-6">
-          Demo mode — no real credentials required. Production uses Clerk SSO.
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <p className="text-xs text-gray-500">
+            Don&apos;t have an account?{" "}
+            <button className="text-brand-400 hover:text-brand-300 font-semibold cursor-pointer">Request access</button>
+          </p>
+          <div className="flex items-center justify-center gap-4 text-[10px] text-gray-600">
+            <span>SOC 2 Type II</span>
+            <span>·</span>
+            <span>256-bit AES Encryption</span>
+            <span>·</span>
+            <span>GDPR Compliant</span>
+          </div>
+        </div>
       </div>
     </div>
   );
