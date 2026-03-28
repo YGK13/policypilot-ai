@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
+    "@clerk/nextjs": "^7.0.7",
+    "@neondatabase/serverless": "^1.0.2",
     "ai": "^6.0.138",
     "dompurify": "^3.3.3",
     "next": "^16.2.1",
