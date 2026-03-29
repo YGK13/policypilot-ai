@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, createContext, useContext } from "react";
+import { useUser, useClerk, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import ToastProvider from "@/components/layout/ToastProvider";
 import RouteGuard from "@/components/layout/RouteGuard";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
+
+// -- Check if Clerk is configured (publishable key in env) --
+const CLERK_ENABLED = typeof window !== "undefined" &&
+  !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 // ============================================================================
 // APP CONTEXT — shared state across all views
@@ -278,14 +283,38 @@ function LoginScreen({ onLogin }) {
 
 // ============================================================================
 // APP SHELL — wraps the entire app with auth + shared state
+// When Clerk is configured: uses Clerk for auth, maps user metadata to roles.
+// When Clerk is NOT configured: falls back to demo LoginScreen.
 // ============================================================================
 export default function AppShell({ children }) {
   const saved = useRef(loadState());
   const savedSession = useRef(loadSession());
 
-  // -- Auth state --
-  const [currentUser, setCurrentUser] = useState(() => savedSession.current || null);
+  // -- Clerk auth (only active when CLERK_PUBLISHABLE_KEY is set) --
+  const clerkUser = CLERK_ENABLED ? useUser() : { isLoaded: true, isSignedIn: false, user: null };
+  const clerk = CLERK_ENABLED ? useClerk() : null;
+
+  // -- Demo auth state (fallback when Clerk not configured) --
+  const [demoUser, setDemoUser] = useState(() => savedSession.current || null);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // -- Resolve the current user from either Clerk or demo auth --
+  const currentUser = (() => {
+    if (CLERK_ENABLED && clerkUser.isSignedIn && clerkUser.user) {
+      const u = clerkUser.user;
+      const role = u.publicMetadata?.role || "employee";
+      return {
+        id: u.id,
+        name: u.fullName || u.firstName || "User",
+        email: u.primaryEmailAddress?.emailAddress || "",
+        role,
+        initials: `${(u.firstName || "?")[0]}${(u.lastName || "?")[0]}`,
+        avatarUrl: u.imageUrl,
+        clerkUser: true,
+      };
+    }
+    return demoUser;
+  })();
 
   // -- Derive mode and employee from currentUser --
   const mode = currentUser?.role === "employee" ? "employee" : "admin";
@@ -328,38 +357,37 @@ export default function AppShell({ children }) {
     });
   }, [tickets, auditLog, integrations, settings, notifications, employee]);
 
-  // -- Session timeout: auto-logout after 30 minutes of inactivity --
-  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+  // -- Session timeout: auto-logout after 30 min (demo mode only) --
+  // Clerk handles its own session management, so we skip this for Clerk.
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const timeoutRef = useRef(null);
 
   const resetSessionTimer = useCallback(() => {
+    if (CLERK_ENABLED) return; // Clerk manages sessions
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (!currentUser) return;
     timeoutRef.current = setTimeout(() => {
-      setCurrentUser(null);
+      setDemoUser(null);
       localStorage.removeItem(SESSION_KEY);
-      // State preserved — only session cleared
     }, SESSION_TIMEOUT_MS);
   }, [currentUser]);
 
-  // -- Reset timer on any user interaction --
   useEffect(() => {
-    if (!currentUser) return;
+    if (CLERK_ENABLED || !currentUser) return;
     const events = ["mousedown", "keydown", "scroll", "touchstart"];
     const handler = () => resetSessionTimer();
     events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
-    resetSessionTimer(); // start initial timer
+    resetSessionTimer();
     return () => {
       events.forEach((e) => window.removeEventListener(e, handler));
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [currentUser, resetSessionTimer]);
 
-  // -- Login handler --
+  // -- Login handler (demo mode only) --
   const handleLogin = useCallback((user) => {
-    setCurrentUser(user);
+    setDemoUser(user);
     saveSession(user);
-    // Set employee based on role
     if (user.employeeId) {
       const emp = DEMO_EMPLOYEES.find(e => e.id === user.employeeId);
       if (emp) setEmployee(emp);
@@ -368,9 +396,13 @@ export default function AppShell({ children }) {
 
   // -- Logout handler --
   const handleLogout = useCallback(() => {
-    setCurrentUser(null);
-    localStorage.removeItem(SESSION_KEY);
-  }, []);
+    if (CLERK_ENABLED && clerk) {
+      clerk.signOut();
+    } else {
+      setDemoUser(null);
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }, [clerk]);
 
   // -- Add audit entry helper --
   const addAudit = useCallback(
@@ -446,8 +478,18 @@ export default function AppShell({ children }) {
     return null;
   }
 
-  // -- Show login screen if no session --
-  if (!currentUser) {
+  // -- If Clerk is enabled but user not loaded yet, show nothing --
+  if (CLERK_ENABLED && !clerkUser.isLoaded) {
+    return null;
+  }
+
+  // -- If Clerk is enabled but user not signed in, redirect to sign-in --
+  if (CLERK_ENABLED && !clerkUser.isSignedIn) {
+    return <RedirectToSignIn />;
+  }
+
+  // -- Demo mode: show login screen if no session --
+  if (!CLERK_ENABLED && !currentUser) {
     return (
       <ToastProvider>
         <LoginScreen onLogin={handleLogin} />

@@ -1,11 +1,12 @@
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import AppShell from "./AppShell";
 
 // ============================================================================
-// ROOT LAYOUT — Server component shell + client AppShell for persistent state
-// AppShell wraps all pages so shared state (tickets, audit log, settings,
-// employee context) persists across Next.js client-side navigations.
+// ROOT LAYOUT — Server component shell
+// ClerkProvider wraps everything for auth context.
+// AppShell provides app state + RBAC + sidebar/topbar chrome.
 // ============================================================================
 
 const inter = Inter({
@@ -20,10 +21,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <AppShell>{children}</AppShell>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${inter.variable} font-sans antialiased`}>
+          <AppShell>{children}</AppShell>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
