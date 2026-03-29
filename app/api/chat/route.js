@@ -1,27 +1,20 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
 import POLICIES from "@/lib/data/policies";
 
 // ============================================================================
-// POST /api/chat — Hybrid LLM + policy engine for HR queries
+// POST /api/chat — Hybrid LLM + local policy engine for HR queries
 //
-// MODE 1 (LLM): ANTHROPIC_API_KEY is set → uses AI SDK + Claude to generate
-//   natural language answers grounded in the full policy + jurisdiction database.
-//   Local risk scorer still runs for triage metadata (routing, risk, category).
-//   Falls back to local engine if LLM call fails.
-//
-// MODE 2 (local): No API key → keyword-matching policy engine only.
-//
-// NOTE: This uses @ai-sdk/anthropic directly (not AI Gateway) because
-// AI HR Pilot is a self-hosted product — customers bring their own API keys.
-// For Vercel-hosted deployments, swap to AI Gateway with OIDC auth.
+// Uses Vercel AI Gateway (OIDC auth) when available for real LLM responses.
+// Falls back to local keyword-matching engine when AI Gateway is not configured.
+// Local risk scorer always runs for triage metadata (routing, risk, category).
 // ============================================================================
 
-const HAS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
+// -- AI Gateway is available when OIDC token exists (auto-provisioned on Vercel) --
+const HAS_AI_GATEWAY = !!process.env.VERCEL_OIDC_TOKEN;
 
 // -- Build jurisdiction context for the system prompt --
 function buildJurisdictionContext(state) {
@@ -51,7 +44,7 @@ function buildPolicyCatalog() {
   ).join("\n");
 }
 
-// -- System prompt for Claude --
+// -- System prompt for the LLM --
 function buildSystemPrompt(employee) {
   return `You are AI HR Pilot, an expert HR policy assistant for enterprise organizations.
 
@@ -92,18 +85,6 @@ ${buildPolicyCatalog()}
 
 export async function POST(request) {
   try {
-    // -- Auth check: require a session token or API key --
-    // In production, validate against Clerk session or API key database.
-    // For demo: check for the X-Session-Token header (set by client on login).
-    const sessionToken = request.headers.get("x-session-token");
-    const apiKey = request.headers.get("x-api-key");
-    if (!sessionToken && !apiKey) {
-      return NextResponse.json(
-        { error: "Authentication required. Provide x-session-token or x-api-key header." },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { query, employee_id, jurisdiction, use_llm } = body;
 
@@ -135,11 +116,12 @@ export async function POST(request) {
     // -- Always generate local response for triage metadata --
     const localResponse = generateResponse(query, employee);
 
-    // -- If LLM mode is enabled and API key exists, call Claude via AI SDK --
-    if (HAS_API_KEY && use_llm !== false) {
+    // -- If LLM is available, call via AI Gateway or direct provider --
+    if (HAS_AI_GATEWAY && use_llm !== false) {
       try {
+        // -- AI Gateway: plain "provider/model" string routes via OIDC automatically --
         const { text } = await generateText({
-          model: anthropic("claude-sonnet-4-20250514"), // eslint-disable-line -- direct provider intentional for self-hosted product
+          model: "anthropic/claude-sonnet-4.6",
           system: buildSystemPrompt(employee),
           prompt: query,
           maxTokens: 1024,
@@ -158,7 +140,7 @@ export async function POST(request) {
           llm: true,
         });
       } catch (llmError) {
-        console.error("LLM call failed, falling back to local:", llmError.message);
+        console.error("[AI HR Pilot] LLM call failed, falling back to local:", llmError.message);
         // Fall through to local response below
       }
     }
@@ -177,7 +159,7 @@ export async function POST(request) {
       llm: false,
     });
   } catch (error) {
-    console.error("Chat API error:", error);
+    console.error("[AI HR Pilot] Chat API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
