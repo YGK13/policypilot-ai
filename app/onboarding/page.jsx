@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useApp } from "../AppShell";
 import { useToast } from "@/components/layout/ToastProvider";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ const US_STATES = [
 ];
 
 function OnboardingContent() {
-  const { settings, setSettings, addAudit, currentUser } = useApp();
+  const { settings, setSettings, addAudit, currentUser, orgId } = useApp();
   const { addToast } = useToast();
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -49,6 +49,8 @@ function OnboardingContent() {
 
   // -- Uploaded files tracking --
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef(null);
 
   // -- AI config --
   const [aiConfig, setAiConfig] = useState({
@@ -65,11 +67,33 @@ function OnboardingContent() {
     );
   }, []);
 
-  // -- Complete onboarding --
-  const finishOnboarding = useCallback(() => {
-    // Save settings
-    setSettings((prev) => ({
-      ...prev,
+  // -- Real file upload handler --
+  const handleFileUpload = useCallback(async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploadingFile(true);
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("orgId", orgId || "default");
+      try {
+        const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
+        const data = await res.json();
+        setUploadedFiles((prev) => [...prev, { name: file.name, blobUrl: data.url || null, dbId: data.dbId || null }]);
+        addToast("success", "Uploaded", file.name);
+      } catch {
+        // Still add to list so user sees progress
+        setUploadedFiles((prev) => [...prev, { name: file.name, blobUrl: null, dbId: null }]);
+        addToast("warning", "Upload Warning", `${file.name} saved locally only`);
+      }
+    }
+    setUploadingFile(false);
+    if (e.target) e.target.value = "";
+  }, [orgId, addToast]);
+
+  // -- Complete onboarding: save settings locally + sync to Neon --
+  const finishOnboarding = useCallback(async () => {
+    const newSettings = {
       companyName: company.name,
       supportEmail: company.supportEmail,
       autoRespond: aiConfig.autoRespond,
@@ -81,11 +105,19 @@ function OnboardingContent() {
       selectedJurisdictions,
       industry: company.industry,
       employeeCount: company.employeeCount,
-    }));
+    };
+    // -- Save to context (localStorage) --
+    setSettings((prev) => ({ ...prev, ...newSettings }));
+    // -- Fire-and-forget sync to Neon --
+    fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId: orgId || "default", settings: newSettings }),
+    }).catch(() => {});
     addAudit("ONBOARDING_COMPLETE", `${company.name} setup complete. ${selectedJurisdictions.length} jurisdictions, ${uploadedFiles.length} docs uploaded.`, "success");
     addToast("success", "Setup Complete!", "AI HR Pilot is ready to use");
     router.push("/");
-  }, [company, selectedJurisdictions, uploadedFiles, aiConfig, setSettings, addAudit, addToast, router]);
+  }, [company, selectedJurisdictions, uploadedFiles, aiConfig, orgId, setSettings, addAudit, addToast, router]);
 
   const currentStep = STEPS[step];
   const inputCls = "w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400";
@@ -217,28 +249,47 @@ function OnboardingContent() {
               <p className="text-sm text-gray-500 mb-6">
                 Upload your company policies, employee handbook, or benefits guide. AI HR Pilot uses these to answer questions accurately.
               </p>
+              {/* -- Real file upload zone -- */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
               <div
-                onClick={() => {
-                  // Simulate file selection
-                  const fakeFile = `Company_Handbook_${company.name || "Acme"}_2026.pdf`;
-                  if (!uploadedFiles.includes(fakeFile)) {
-                    setUploadedFiles((prev) => [...prev, fakeFile]);
-                    addToast("success", "Uploaded", fakeFile);
-                  }
-                }}
-                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-brand-400 hover:bg-gray-50 transition-all cursor-pointer mb-4"
+                onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all mb-4 ${
+                  uploadingFile
+                    ? "border-brand-300 bg-brand-50 cursor-wait"
+                    : "border-gray-300 hover:border-brand-400 hover:bg-gray-50 cursor-pointer"
+                }`}
               >
-                <div className="text-4xl mb-2">📄</div>
-                <p className="text-sm font-semibold text-gray-700">Click to upload or drag & drop</p>
-                <p className="text-xs text-gray-400 mt-1">PDF, DOCX, or Google Docs link. Max 25MB.</p>
+                <div className="text-4xl mb-2">{uploadingFile ? "⏳" : "📄"}</div>
+                <p className="text-sm font-semibold text-gray-700">
+                  {uploadingFile ? "Uploading…" : "Click to upload or drag & drop"}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">PDF, DOCX, XLSX, CSV. Max 25MB per file.</p>
               </div>
               {uploadedFiles.length > 0 && (
                 <div className="space-y-2">
                   {uploadedFiles.map((f, i) => (
                     <div key={i} className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <span className="text-green-600">✓</span>
-                      <span className="text-sm font-medium text-green-800 flex-1">{f}</span>
-                      <button onClick={() => setUploadedFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-xs text-red-500 hover:text-red-700 cursor-pointer">Remove</button>
+                      {f.blobUrl ? (
+                        <a href={f.blobUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand-600 hover:underline flex-1 truncate">
+                          {f.name}
+                        </a>
+                      ) : (
+                        <span className="text-sm font-medium text-green-800 flex-1 truncate">{f.name}</span>
+                      )}
+                      <button
+                        onClick={() => setUploadedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-xs text-red-500 hover:text-red-700 cursor-pointer flex-shrink-0"
+                      >
+                        Remove
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -299,8 +350,8 @@ function OnboardingContent() {
               <div className="text-5xl mb-4">🚀</div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">AI HR Pilot is ready!</h2>
               <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                {company.name || "Your company"} is set up with {selectedJurisdictions.length} jurisdictions,
-                {uploadedFiles.length > 0 ? ` ${uploadedFiles.length} document${uploadedFiles.length > 1 ? "s" : ""}` : " no documents yet"},
+                {company.name || "Your company"} is set up with {selectedJurisdictions.length} jurisdiction{selectedJurisdictions.length !== 1 ? "s" : ""},
+                {uploadedFiles.length > 0 ? ` ${uploadedFiles.length} document${uploadedFiles.length > 1 ? "s" : ""} uploaded` : " no documents yet"},
                 and AI auto-response {aiConfig.autoRespond ? "enabled" : "disabled"}.
               </p>
               <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto mb-6">
@@ -333,7 +384,7 @@ function OnboardingContent() {
 
             {currentStep.id === "done" ? (
               <button
-                onClick={finishOnboarding}
+                onClick={() => finishOnboarding()}
                 className="px-6 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors cursor-pointer"
               >
                 Go to Dashboard →

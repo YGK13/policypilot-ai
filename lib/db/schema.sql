@@ -182,6 +182,33 @@ CREATE INDEX IF NOT EXISTS idx_chat_org_user ON chat_messages(org_id, user_id, c
 CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id);
 
 -- ============================================================================
+-- SENSITIVE CASES — confidential HR case files (harassment, investigations, etc.)
+-- Separate from regular ticket queue. Stores full notes timeline as JSONB.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS cases (
+  id            TEXT PRIMARY KEY,                -- CASE-XXXXX format
+  org_id        TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL,                  -- harassment, accommodation, investigation, etc.
+  type_label    TEXT NOT NULL,
+  type_icon     TEXT DEFAULT '📋',
+  confidentiality TEXT DEFAULT 'standard',      -- standard, restricted, legal_hold
+  subject       TEXT NOT NULL,
+  description   TEXT,
+  reported_by   TEXT,
+  accused_party TEXT,
+  status        TEXT DEFAULT 'open',            -- open, investigating, pending_resolution, resolved, closed
+  assignee      TEXT,
+  created_by    TEXT NOT NULL,
+  risk          TEXT DEFAULT 'medium',          -- medium, high, critical
+  notes         JSONB DEFAULT '[]',             -- full notes timeline stored as JSONB array
+  documents     JSONB DEFAULT '[]',
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_cases_org ON cases(org_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(org_id, status);
+
+-- ============================================================================
 -- API KEYS — customer-generated API keys
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS api_keys (

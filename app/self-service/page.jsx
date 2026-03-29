@@ -24,7 +24,7 @@ const ACTIONS = [
 ];
 
 function SelfServiceContent() {
-  const { employee, addAudit, addNotification, setTickets, mode } = useApp();
+  const { employee, addAudit, addNotification, setTickets, mode, orgId } = useApp();
   const { addToast } = useToast();
   const [activeAction, setActiveAction] = useState(null);
 
@@ -42,7 +42,7 @@ function SelfServiceContent() {
       return;
     }
     const ticketId = genId();
-    setTickets((prev) => [{
+    const ticket = {
       id: ticketId,
       query: `PTO Request: ${ptoForm.type} from ${ptoForm.startDate} to ${ptoForm.endDate}`,
       category: "Leave & Time Off",
@@ -59,13 +59,24 @@ function SelfServiceContent() {
       assignee: "Manager Approval",
       satisfaction: null,
       resolution: "Awaiting manager approval",
-    }, ...prev]);
+    };
+    // -- Optimistic local add --
+    setTickets((prev) => [ticket, ...prev]);
     addAudit("PTO_REQUEST", `${ptoForm.type}: ${ptoForm.startDate} to ${ptoForm.endDate}`, "info");
     addNotification("PTO Request Submitted", `${employee.firstName}: ${ptoForm.type} ${ptoForm.startDate} - ${ptoForm.endDate}`, "info");
     addToast("success", "PTO Request Submitted", `Request ${ticketId} sent to your manager for approval`);
     setPtoForm({ type: "vacation", startDate: "", endDate: "", notes: "" });
     setActiveAction(null);
-  }, [ptoForm, employee, setTickets, addAudit, addNotification, addToast]);
+    // -- Fire-and-forget persist to Neon --
+    fetch("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgId: orgId || "default",
+        ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+      }),
+    }).catch(() => {});
+  }, [ptoForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
 
   // ============ PERSONAL INFO FORM ============
   const [infoForm, setInfoForm] = useState({
@@ -101,7 +112,7 @@ function SelfServiceContent() {
       return;
     }
     const ticketId = genId();
-    setTickets((prev) => [{
+    const ticket = {
       id: ticketId,
       query: `Leave of Absence: ${leaveForm.leaveType.toUpperCase()} starting ${leaveForm.startDate}`,
       category: "Leave & Time Off",
@@ -118,13 +129,24 @@ function SelfServiceContent() {
       assignee: "HR Business Partner",
       satisfaction: null,
       resolution: "Pending HR review",
-    }, ...prev]);
+    };
+    // -- Optimistic local add --
+    setTickets((prev) => [ticket, ...prev]);
     addAudit("LEAVE_REQUEST", `${leaveForm.leaveType.toUpperCase()} from ${leaveForm.startDate}`, "warning");
     addNotification("Leave of Absence Request", `${employee.firstName}: ${leaveForm.leaveType.toUpperCase()} starting ${leaveForm.startDate}`, "warning");
     addToast("success", "Leave Request Submitted", `Request ${ticketId} sent to HR for review`);
     setLeaveForm({ leaveType: "fmla", startDate: "", estimatedReturn: "", reason: "" });
     setActiveAction(null);
-  }, [leaveForm, employee, setTickets, addAudit, addNotification, addToast]);
+    // -- Fire-and-forget persist to Neon --
+    fetch("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgId: orgId || "default",
+        ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+      }),
+    }).catch(() => {});
+  }, [leaveForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
 
   // ============ RENDER ============
   const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400";

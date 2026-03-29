@@ -15,38 +15,63 @@ import { genId } from "@/lib/utils";
 // - Whistleblower reports
 // - Grievance/complaint filings
 //
-// Each case has: private notes timeline, document attachments,
-// resolution tracking, assigned investigator, and confidentiality level.
+// Each case has: private notes timeline, confidentiality level, assigned
+// investigator, and resolution tracking. All data is persisted to Neon Postgres.
 // ============================================================================
 
 const CASE_TYPES = [
-  { id: "harassment", label: "Harassment / Discrimination", icon: "🚨", risk: "critical" },
-  { id: "accommodation", label: "ADA Accommodation Request", icon: "♿", risk: "high" },
-  { id: "investigation", label: "Workplace Investigation", icon: "🔍", risk: "critical" },
-  { id: "termination", label: "Termination / Separation", icon: "📋", risk: "high" },
-  { id: "whistleblower", label: "Whistleblower Report", icon: "🔔", risk: "critical" },
-  { id: "grievance", label: "Grievance / Complaint", icon: "📝", risk: "medium" },
+  { id: "harassment",     label: "Harassment / Discrimination", icon: "🚨", risk: "critical" },
+  { id: "accommodation",  label: "ADA Accommodation Request",   icon: "♿", risk: "high" },
+  { id: "investigation",  label: "Workplace Investigation",     icon: "🔍", risk: "critical" },
+  { id: "termination",    label: "Termination / Separation",    icon: "📋", risk: "high" },
+  { id: "whistleblower",  label: "Whistleblower Report",        icon: "🔔", risk: "critical" },
+  { id: "grievance",      label: "Grievance / Complaint",       icon: "📝", risk: "medium" },
 ];
 
 const CONFIDENTIALITY = [
-  { id: "standard", label: "Standard — HR Team", color: "pill-blue" },
+  { id: "standard",   label: "Standard — HR Team",          color: "pill-blue" },
   { id: "restricted", label: "Restricted — HR Director Only", color: "pill-amber" },
-  { id: "legal_hold", label: "Legal Hold — HR + Legal", color: "pill-red" },
+  { id: "legal_hold", label: "Legal Hold — HR + Legal",      color: "pill-red" },
 ];
 
 const STATUS_COLORS = {
-  open: "pill-blue",
-  investigating: "pill-amber",
-  pending_resolution: "pill-amber",
-  resolved: "pill-green",
-  closed: "pill-gray",
+  open:                "pill-blue",
+  investigating:       "pill-amber",
+  pending_resolution:  "pill-amber",
+  resolved:            "pill-green",
+  closed:              "pill-gray",
 };
 
+// -- Normalize Neon row → UI shape --
+function normalizeDbCase(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    typeLabel: row.type_label,
+    typeIcon: row.type_icon || "📋",
+    confidentiality: row.confidentiality || "standard",
+    subject: row.subject,
+    description: row.description || "",
+    reportedBy: row.reported_by || "",
+    accusedParty: row.accused_party || "",
+    status: row.status || "open",
+    assignee: row.assignee || "",
+    createdBy: row.created_by,
+    risk: row.risk || "medium",
+    notes: Array.isArray(row.notes) ? row.notes : (row.notes ? JSON.parse(row.notes) : []),
+    documents: Array.isArray(row.documents) ? row.documents : [],
+    createdAt: row.created_at || new Date().toISOString(),
+    fromDb: true,
+  };
+}
+
 function CasesContent() {
-  const { employee, mode, currentUser, addAudit, addNotification } = useApp();
+  const { employee, mode, currentUser, orgId, addAudit, addNotification } = useApp();
   const { addToast } = useToast();
 
+  // -- Cases state: loads from Neon, falls back to in-memory --
   const [cases, setCases] = useState([]);
+  const [dbLoaded, setDbLoaded] = useState(false);
   const [showNewCase, setShowNewCase] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [newNote, setNewNote] = useState("");
@@ -60,6 +85,25 @@ function CasesContent() {
     }
   }, [mode, currentUser, addAudit]);
 
+  // -- Load cases from Neon on mount --
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const resolvedOrgId = orgId || "default";
+        const res = await fetch(`/api/cases?orgId=${resolvedOrgId}`);
+        const data = await res.json();
+        if (!data.demo && Array.isArray(data.cases)) {
+          setCases(data.cases.map(normalizeDbCase));
+        }
+      } catch {
+        // Non-fatal: in-memory state is the fallback
+      } finally {
+        setDbLoaded(true);
+      }
+    };
+    load();
+  }, [orgId]);
+
   // -- New case form state --
   const [newCase, setNewCase] = useState({
     type: "harassment",
@@ -70,110 +114,108 @@ function CasesContent() {
     accusedParty: "",
   });
 
-  // -- Create a new case --
+  // -- Create a new case: optimistic UI + fire-and-forget to Neon --
   const createCase = useCallback(() => {
     if (!newCase.subject.trim()) {
       addToast("error", "Missing Field", "Case subject is required");
       return;
     }
+    const caseType = CASE_TYPES.find((t) => t.id === newCase.type);
     const caseObj = {
       id: `CASE-${genId().split("-").pop()}`,
       ...newCase,
-      typeLabel: CASE_TYPES.find((t) => t.id === newCase.type)?.label || newCase.type,
-      typeIcon: CASE_TYPES.find((t) => t.id === newCase.type)?.icon || "📋",
-      risk: CASE_TYPES.find((t) => t.id === newCase.type)?.risk || "medium",
-      status: "open",
-      assignee: newCase.confidentiality === "legal_hold" ? "Legal Counsel" : "HR Director",
+      typeLabel: caseType?.label || newCase.type,
+      typeIcon:  caseType?.icon  || "📋",
+      risk:      caseType?.risk  || "medium",
+      status:    "open",
+      assignee:  newCase.confidentiality === "legal_hold" ? "Legal Counsel" : "HR Director",
       createdAt: new Date().toISOString(),
       createdBy: `${employee.firstName} ${employee.lastName}`,
       notes: [
         {
-          id: `NOTE-${Date.now()}`,
-          text: "Case opened. Initial report filed.",
-          author: `${employee.firstName} ${employee.lastName}`,
+          id:        `NOTE-${Date.now()}`,
+          text:      "Case opened. Initial report filed.",
+          author:    `${employee.firstName} ${employee.lastName}`,
           timestamp: new Date().toISOString(),
-          type: "system",
+          type:      "system",
         },
       ],
       documents: [],
     };
+
+    // -- Optimistic local add --
     setCases((prev) => [caseObj, ...prev]);
     addAudit("CASE_OPENED", `${caseObj.id}: ${caseObj.typeLabel} — "${caseObj.subject}"`, "critical");
-    addNotification(
-      `New Case: ${caseObj.typeLabel}`,
-      `${caseObj.createdBy} opened ${caseObj.id}`,
-      "critical"
-    );
+    addNotification(`New Case: ${caseObj.typeLabel}`, `${caseObj.createdBy} opened ${caseObj.id}`, "critical");
     addToast("success", "Case Created", `${caseObj.id} assigned to ${caseObj.assignee}`);
     setNewCase({ type: "harassment", confidentiality: "standard", subject: "", description: "", reportedBy: "", accusedParty: "" });
     setShowNewCase(false);
-  }, [newCase, employee, addAudit, addNotification, addToast]);
 
-  // -- Add note to a case --
+    // -- Fire-and-forget persist to Neon --
+    fetch("/api/cases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId: orgId || "default", caseObj }),
+    }).catch((err) => console.warn("[Cases] POST failed:", err.message));
+  }, [newCase, employee, orgId, addAudit, addNotification, addToast]);
+
+  // -- Add note to a case: optimistic + PATCH notes array to Neon --
   const addCaseNote = useCallback(() => {
     if (!newNote.trim() || !selectedCase) return;
     const noteObj = {
-      id: `NOTE-${Date.now()}`,
-      text: newNote,
-      author: `${employee.firstName} ${employee.lastName}`,
+      id:        `NOTE-${Date.now()}`,
+      text:      newNote,
+      author:    `${employee.firstName} ${employee.lastName}`,
       timestamp: new Date().toISOString(),
-      type: "note",
+      type:      "note",
     };
-    // -- Update cases array --
-    setCases((prev) =>
-      prev.map((c) =>
-        c.id === selectedCase.id
-          ? { ...c, notes: [...c.notes, noteObj] }
-          : c
-      )
-    );
-    // -- Directly update selectedCase (don't search stale array) --
-    setSelectedCase((prev) => ({
-      ...prev,
-      notes: [...prev.notes, noteObj],
-    }));
+    const updatedNotes = [...selectedCase.notes, noteObj];
+
+    // -- Optimistic local update --
+    setCases((prev) => prev.map((c) => c.id === selectedCase.id ? { ...c, notes: updatedNotes } : c));
+    setSelectedCase((prev) => ({ ...prev, notes: updatedNotes }));
     addAudit("CASE_NOTE", `Note added to ${selectedCase.id}`, "info");
     setNewNote("");
-  }, [newNote, selectedCase, employee, addAudit]);
 
-  // -- Update case status --
+    // -- Fire-and-forget persist to Neon --
+    fetch("/api/cases", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId: orgId || "default", caseId: selectedCase.id, action: "add_note", notes: updatedNotes }),
+    }).catch((err) => console.warn("[Cases] PATCH notes failed:", err.message));
+  }, [newNote, selectedCase, employee, orgId, addAudit]);
+
+  // -- Update case status: optimistic + PATCH status to Neon --
   const updateStatus = useCallback((caseId, newStatus) => {
+    const statusNote = {
+      id:        `NOTE-${Date.now()}`,
+      text:      `Status changed to: ${newStatus.replace(/_/g, " ")}`,
+      author:    `${employee.firstName} ${employee.lastName}`,
+      timestamp: new Date().toISOString(),
+      type:      "system",
+    };
+
+    // -- Optimistic local update --
     setCases((prev) =>
       prev.map((c) =>
-        c.id === caseId
-          ? {
-              ...c,
-              status: newStatus,
-              notes: [
-                ...c.notes,
-                {
-                  id: `NOTE-${Date.now()}`,
-                  text: `Status changed to: ${newStatus.replace(/_/g, " ")}`,
-                  author: `${employee.firstName} ${employee.lastName}`,
-                  timestamp: new Date().toISOString(),
-                  type: "system",
-                },
-              ],
-            }
-          : c
+        c.id === caseId ? { ...c, status: newStatus, notes: [...c.notes, statusNote] } : c
       )
     );
-    // -- Update selectedCase if it's the one being updated --
-    const statusNote = {
-      id: `NOTE-${Date.now()}`,
-      text: `Status changed to: ${newStatus.replace(/_/g, " ")}`,
-      author: `${employee.firstName} ${employee.lastName}`,
-      timestamp: new Date().toISOString(),
-      type: "system",
-    };
     setSelectedCase((prev) => {
       if (prev?.id !== caseId) return prev;
       return { ...prev, status: newStatus, notes: [...prev.notes, statusNote] };
     });
     addAudit("CASE_STATUS", `${caseId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
-  }, [employee, addAudit]);
 
-  // -- Admin-only page --
+    // -- Fire-and-forget persist to Neon --
+    fetch("/api/cases", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId: orgId || "default", caseId, action: "update_status", status: newStatus }),
+    }).catch((err) => console.warn("[Cases] PATCH status failed:", err.message));
+  }, [employee, orgId, addAudit]);
+
+  // -- Admin-only access guard --
   if (mode === "employee") {
     return (
       <div className="p-6 max-w-[600px] mx-auto text-center py-20">
@@ -196,6 +238,11 @@ function CasesContent() {
           <h2 className="text-lg font-bold text-gray-900">Sensitive Case Management</h2>
           <p className="text-xs text-gray-500 mt-1">
             Confidential case files for harassment, investigations, accommodations, and terminations.
+            {dbLoaded && cases.length > 0 && (
+              <span className="ml-2 text-brand-600 font-medium">
+                {cases.length} case{cases.length !== 1 ? "s" : ""} on record
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -258,7 +305,10 @@ function CasesContent() {
       <div className="flex gap-6">
         {/* ============ Case List ============ */}
         <div className={`${selectedCase ? "w-1/3" : "w-full"} space-y-3 transition-all`}>
-          {cases.length === 0 && !showNewCase ? (
+          {!dbLoaded && (
+            <div className="text-center py-8 text-gray-400 text-sm">Loading cases…</div>
+          )}
+          {dbLoaded && cases.length === 0 && !showNewCase ? (
             <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-200">
               <div className="text-4xl mb-3">🔒</div>
               <h3 className="text-sm font-semibold text-gray-600">No Open Cases</h3>
