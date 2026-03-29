@@ -45,27 +45,59 @@ function DocumentsContent() {
 
   // -- Process uploaded files: add them to the visible document list --
   const processFiles = useCallback(
-    (fileList) => {
+    async (fileList) => {
       const files = Array.from(fileList);
       if (files.length === 0) return;
 
-      const newDocs = files.map((f, i) => ({
-        id: `upload-${Date.now()}-${i}`,
-        name: f.name,
-        type: inferType(f.name),
-        category: "Uploaded",
-        jurisdictions: ["All"],
-        version: "1.0",
-        pages: "—",
-        status: "Draft",
-        uploaded: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-      }));
+      // -- Upload each file to Vercel Blob via API route --
+      const uploaded = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+          const res = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          uploaded.push({
+            id: `upload-${Date.now()}-${uploaded.length}`,
+            name: file.name,
+            type: inferType(file.name),
+            category: "Uploaded",
+            jurisdictions: ["All"],
+            version: "1.0",
+            pages: "—",
+            status: "Draft",
+            blobUrl: data.url || null,
+            size: file.size,
+            uploaded: new Date().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+          });
+        } catch {
+          // Fallback: add without blob URL
+          uploaded.push({
+            id: `upload-${Date.now()}-${uploaded.length}`,
+            name: file.name,
+            type: inferType(file.name),
+            category: "Uploaded",
+            jurisdictions: ["All"],
+            version: "1.0",
+            pages: "—",
+            status: "Draft",
+            uploaded: new Date().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+          });
+        }
+      }
 
-      setDocs((prev) => [...prev, ...newDocs]);
+      setDocs((prev) => [...prev, ...uploaded]);
       addAudit(
         "DOCUMENT_UPLOAD",
         `Uploaded ${files.length} file(s): ${files.map((f) => f.name).join(", ")}`,
