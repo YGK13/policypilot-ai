@@ -1,20 +1,69 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useApp } from "../AppShell";
 
 // ============================================================================
-// ANALYTICS PAGE — Real data from tickets, not random numbers.
-// Stats, category breakdown, routing distribution, queries by state,
-// resolution rate, risk distribution — all derived from actual ticket data.
+// ANALYTICS PAGE — Hybrid: tries Neon API first, falls back to context data.
+//
+// When DB is available: fetches /api/analytics for authoritative org-wide stats.
+// When DB is unavailable (demo mode): derives metrics from localStorage tickets.
+// Time range selector: 7d / 30d / 90d.
 // ============================================================================
 
-function AnalyticsContent() {
-  const { tickets, mode } = useApp();
+// -- Color ramp for category bars --
+const BAR_COLORS = [
+  "#6366f1", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#84cc16",
+];
 
-  // ============ COMPUTED METRICS FROM REAL TICKET DATA ============
-  const metrics = useMemo(() => {
-    const total = tickets.length;
+function AnalyticsContent() {
+  const { tickets, currentUser } = useApp();
+
+  // -- Time range filter (used for both API and local computation) --
+  const [days, setDays] = useState(30);
+
+  // -- API state: null = not loaded yet, false = demo/no-db, object = real data --
+  const [apiStats, setApiStats] = useState(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
+  // -- Fetch from Neon API --
+  useEffect(() => {
+    const load = async () => {
+      setApiLoading(true);
+      setApiError(null);
+      try {
+        const orgId = currentUser?.orgId || "default";
+        const res = await fetch(`/api/analytics?orgId=${orgId}&days=${days}`);
+        const data = await res.json();
+        if (data.demo || data.error) {
+          setApiStats(false); // use local fallback
+        } else {
+          setApiStats(data);
+        }
+      } catch {
+        setApiStats(false);
+      } finally {
+        setApiLoading(false);
+      }
+    };
+    load();
+  }, [days, currentUser]);
+
+  // ============================================================================
+  // LOCAL METRICS — derived from context tickets (demo mode + fallback)
+  // Filters to the selected time window.
+  // ============================================================================
+  const localMetrics = useMemo(() => {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    // Filter tickets within the time window (if they have a parseable date)
+    const windowed = tickets.filter((t) => {
+      if (!t.created) return true; // always include if no timestamp
+      const ts = new Date(t.created).getTime();
+      return isNaN(ts) || ts >= cutoff;
+    });
+
+    const total = windowed.length;
     if (total === 0) {
       return {
         total: 0, resolved: 0, escalated: 0, pending: 0,
@@ -22,38 +71,38 @@ function AnalyticsContent() {
         hrRate: 0, legalRate: 0,
         catCounts: [], stateCounts: [], routingCounts: [],
         riskBuckets: { low: 0, medium: 0, high: 0, critical: 0 },
-        satisfactionAvg: 0, satisfactionCount: 0,
+        satisfactionAvg: "—", satisfactionCount: 0,
       };
     }
 
-    const resolved = tickets.filter(t => t.status === "resolved").length;
-    const escalated = tickets.filter(t => t.status === "escalated").length;
-    const pending = tickets.filter(t => t.status === "pending").length;
-    const avgRisk = Math.round(tickets.reduce((a, t) => a + (t.riskScore || 0), 0) / total);
-    const autoRouted = tickets.filter(t => t.routing === "auto" || t.routing === "auto_enhanced").length;
-    const hrRouted = tickets.filter(t => t.routing === "hr").length;
-    const legalRouted = tickets.filter(t => t.routing === "legal").length;
+    const resolved = windowed.filter((t) => t.status === "resolved").length;
+    const escalated = windowed.filter((t) => t.status === "escalated").length;
+    const pending = windowed.filter((t) => t.status === "pending").length;
+    const avgRisk = Math.round(windowed.reduce((a, t) => a + (t.riskScore || 0), 0) / total);
+    const autoRouted = windowed.filter((t) => t.routing === "auto" || t.routing === "auto_enhanced").length;
+    const hrRouted = windowed.filter((t) => t.routing === "hr").length;
+    const legalRouted = windowed.filter((t) => t.routing === "legal").length;
 
-    // -- Category distribution --
+    // Category distribution
     const catMap = {};
-    tickets.forEach(t => { catMap[t.category] = (catMap[t.category] || 0) + 1; });
+    windowed.forEach((t) => { catMap[t.category] = (catMap[t.category] || 0) + 1; });
     const catCounts = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
 
-    // -- State distribution --
+    // State distribution
     const stateMap = {};
-    tickets.forEach(t => { if (t.state) stateMap[t.state] = (stateMap[t.state] || 0) + 1; });
+    windowed.forEach((t) => { if (t.state) stateMap[t.state] = (stateMap[t.state] || 0) + 1; });
     const stateCounts = Object.entries(stateMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
-    // -- Routing distribution --
+    // Routing distribution
     const routingCounts = [
       { label: "Auto-Resolved", value: autoRouted, color: "#10b981" },
       { label: "HR Review", value: hrRouted, color: "#f59e0b" },
       { label: "Legal Escalation", value: legalRouted, color: "#ef4444" },
     ];
 
-    // -- Risk buckets --
+    // Risk buckets
     const riskBuckets = { low: 0, medium: 0, high: 0, critical: 0 };
-    tickets.forEach(t => {
+    windowed.forEach((t) => {
       const r = t.riskScore || 0;
       if (r >= 76) riskBuckets.critical++;
       else if (r >= 51) riskBuckets.high++;
@@ -61,8 +110,8 @@ function AnalyticsContent() {
       else riskBuckets.low++;
     });
 
-    // -- Satisfaction from tickets with ratings --
-    const rated = tickets.filter(t => t.satisfaction != null);
+    // Satisfaction
+    const rated = windowed.filter((t) => t.satisfaction != null);
     const satisfactionAvg = rated.length > 0
       ? (rated.reduce((a, t) => a + t.satisfaction, 0) / rated.length).toFixed(1)
       : "—";
@@ -78,13 +127,61 @@ function AnalyticsContent() {
       satisfactionAvg,
       satisfactionCount: rated.length,
     };
-  }, [tickets]);
+  }, [tickets, days]);
 
-  const maxCat = metrics.catCounts.length > 0 ? Math.max(...metrics.catCounts.map(c => c[1]), 1) : 1;
-  const maxState = metrics.stateCounts.length > 0 ? Math.max(...metrics.stateCounts.map(s => s[1]), 1) : 1;
+  // ============================================================================
+  // RESOLVED DISPLAY METRICS — prefer API data, fall back to local
+  // ============================================================================
+  const isApiMode = apiStats && apiStats !== false;
+
+  // When using API data, normalize the shape to match what the UI expects
+  const apiMetrics = useMemo(() => {
+    if (!isApiMode) return null;
+    const s = apiStats.stats || {};
+    const total = parseInt(s.total || 0, 10);
+    const resolved = parseInt(s.resolved || 0, 10);
+    const escalated = parseInt(s.escalated || 0, 10);
+    const avgRisk = parseInt(s.avg_risk || 0, 10);
+    const avgSatisfaction = s.avg_satisfaction ? parseFloat(s.avg_satisfaction).toFixed(1) : "—";
+    const avgResolutionHours = s.avg_resolution_seconds
+      ? Math.round(parseInt(s.avg_resolution_seconds, 10) / 3600)
+      : null;
+
+    // Category breakdown from API
+    const catCounts = (apiStats.byCategory || []).map((r) => [r.category, parseInt(r.count, 10)]);
+
+    // State breakdown from API
+    const stateCounts = (apiStats.byState || []).map((r) => [r.state, parseInt(r.count, 10)]);
+
+    return {
+      total, resolved, escalated,
+      pending: total - resolved - escalated,
+      resolutionRate: total > 0 ? Math.round((resolved / total) * 100) : 0,
+      avgRisk,
+      catCounts, stateCounts,
+      avgSatisfaction, avgResolutionHours,
+    };
+  }, [isApiMode, apiStats]);
+
+  // -- Use whichever data source is available --
+  const display = isApiMode ? apiMetrics : localMetrics;
+  const hasData = display && display.total > 0;
+
+  const maxCat = display?.catCounts?.length > 0 ? Math.max(...display.catCounts.map((c) => c[1]), 1) : 1;
+  const maxState = display?.stateCounts?.length > 0 ? Math.max(...display.stateCounts.map((s) => s[1]), 1) : 1;
+
+  // ============ LOADING STATE ============
+  if (apiLoading && !hasData) {
+    return (
+      <div className="p-6 max-w-[800px] mx-auto text-center py-20">
+        <div className="text-3xl mb-3 animate-pulse">📊</div>
+        <p className="text-sm text-gray-500">Loading analytics…</p>
+      </div>
+    );
+  }
 
   // ============ EMPTY STATE ============
-  if (metrics.total === 0) {
+  if (!hasData && !apiLoading) {
     return (
       <div className="p-6 max-w-[800px] mx-auto text-center py-20">
         <div className="text-5xl mb-4">📊</div>
@@ -92,7 +189,10 @@ function AnalyticsContent() {
         <p className="text-sm text-gray-500 mb-4">
           Start conversations in AI Chat to generate ticket data. Analytics will populate automatically.
         </p>
-        <a href="/chat" className="inline-block px-5 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700">
+        <a
+          href="/chat"
+          className="inline-block px-5 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700"
+        >
           Open AI Chat →
         </a>
       </div>
@@ -101,13 +201,45 @@ function AnalyticsContent() {
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
-      {/* ============ KPI Stat Cards — ALL from real data ============ */}
+      {/* ============ Header + Time Range Filter ============ */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Analytics</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {isApiMode ? "Live data from database" : "Session data (no database connected)"}
+            {apiLoading && <span className="ml-2 text-brand-500 animate-pulse">Refreshing…</span>}
+          </p>
+        </div>
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                days === d ? "bg-white text-brand-600 shadow-xs" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ============ KPI Stat Cards ============ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: "💬", label: "Total Queries", value: metrics.total, sub: `${metrics.pending} pending`, cls: "brand" },
-          { icon: "✅", label: "Resolution Rate", value: `${metrics.resolutionRate}%`, sub: `${metrics.resolved} resolved`, cls: "green" },
-          { icon: "⚠️", label: "Escalation Rate", value: `${metrics.hrRate + metrics.legalRate}%`, sub: `${metrics.escalated} escalated`, cls: "amber" },
-          { icon: "🎯", label: "Avg Risk Score", value: metrics.avgRisk, sub: `${metrics.riskBuckets.critical} critical`, cls: metrics.avgRisk > 50 ? "red" : "blue" },
+          { icon: "💬", label: "Total Queries", value: display.total, sub: `${display.pending ?? "—"} pending`, cls: "brand" },
+          { icon: "✅", label: "Resolution Rate", value: `${display.resolutionRate}%`, sub: `${display.resolved} resolved`, cls: "green" },
+          { icon: "⚠️", label: "Escalation Rate", value: `${display.hrRate ?? 0}%`, sub: `${display.escalated} escalated`, cls: "amber" },
+          {
+            icon: "🎯",
+            label: "Avg Risk Score",
+            value: display.avgRisk,
+            sub: isApiMode && apiMetrics?.avgSatisfaction !== "—"
+              ? `Satisfaction: ${apiMetrics.avgSatisfaction}/5`
+              : `${localMetrics.riskBuckets?.critical || 0} critical`,
+            cls: display.avgRisk > 50 ? "red" : "blue",
+          },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
             <div className="flex items-center gap-3">
@@ -122,21 +254,42 @@ function AnalyticsContent() {
         ))}
       </div>
 
+      {/* ============ Extra KPIs when using API data ============ */}
+      {isApiMode && apiMetrics?.avgResolutionHours != null && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-4">
+            <div className="text-xs text-gray-500 font-medium mb-1">Avg Resolution Time</div>
+            <div className="text-2xl font-bold text-gray-900">{apiMetrics.avgResolutionHours}h</div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-4">
+            <div className="text-xs text-gray-500 font-medium mb-1">Avg Satisfaction</div>
+            <div className="text-2xl font-bold text-gray-900">{apiMetrics.avgSatisfaction} <span className="text-sm text-gray-400">/ 5</span></div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-4">
+            <div className="text-xs text-gray-500 font-medium mb-1">Auto-Resolve Rate</div>
+            <div className="text-2xl font-bold text-gray-900">{localMetrics.autoRate}%</div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* ============ Category Breakdown — Bar Chart ============ */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
           <h3 className="text-sm font-bold text-gray-900 mb-4">📊 Queries by Category</h3>
-          {metrics.catCounts.length === 0 ? (
+          {display.catCounts.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-8">No category data</p>
           ) : (
             <div className="space-y-2.5">
-              {metrics.catCounts.map(([cat, count]) => (
+              {display.catCounts.map(([cat, count], i) => (
                 <div key={cat} className="flex items-center gap-3">
                   <span className="text-xs font-medium text-gray-600 w-36 truncate">{cat}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-brand-500 to-brand-400 rounded-full flex items-center justify-end pr-2"
-                      style={{ width: `${Math.max((count / maxCat) * 100, 15)}%` }}
+                      className="h-full rounded-full flex items-center justify-end pr-2 transition-all"
+                      style={{
+                        width: `${Math.max((count / maxCat) * 100, 15)}%`,
+                        backgroundColor: BAR_COLORS[i % BAR_COLORS.length],
+                      }}
                     >
                       <span className="text-[10px] font-bold text-white">{count}</span>
                     </div>
@@ -147,12 +300,15 @@ function AnalyticsContent() {
           )}
         </div>
 
-        {/* ============ Routing Distribution ============ */}
+        {/* ============ Routing Distribution + Risk Buckets ============ */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
           <h3 className="text-sm font-bold text-gray-900 mb-4">🔀 Routing Distribution</h3>
+          {/* Use local routing if API (API doesn't return routing breakdown) */}
           <div className="space-y-4">
-            {metrics.routingCounts.map((r) => {
-              const pct = metrics.total > 0 ? Math.round((r.value / metrics.total) * 100) : 0;
+            {localMetrics.routingCounts.map((r) => {
+              const pct = localMetrics.total > 0
+                ? Math.round((r.value / localMetrics.total) * 100)
+                : 0;
               return (
                 <div key={r.label}>
                   <div className="flex justify-between text-xs mb-1">
@@ -175,10 +331,10 @@ function AnalyticsContent() {
             <h4 className="text-xs font-bold text-gray-700 mb-2">Risk Distribution</h4>
             <div className="grid grid-cols-4 gap-2 text-center">
               {[
-                { label: "Low", value: metrics.riskBuckets.low, color: "text-green-600 bg-green-50" },
-                { label: "Medium", value: metrics.riskBuckets.medium, color: "text-blue-600 bg-blue-50" },
-                { label: "High", value: metrics.riskBuckets.high, color: "text-amber-600 bg-amber-50" },
-                { label: "Critical", value: metrics.riskBuckets.critical, color: "text-red-600 bg-red-50" },
+                { label: "Low", value: localMetrics.riskBuckets.low, color: "text-green-600 bg-green-50" },
+                { label: "Medium", value: localMetrics.riskBuckets.medium, color: "text-blue-600 bg-blue-50" },
+                { label: "High", value: localMetrics.riskBuckets.high, color: "text-amber-600 bg-amber-50" },
+                { label: "Critical", value: localMetrics.riskBuckets.critical, color: "text-red-600 bg-red-50" },
               ].map((b) => (
                 <div key={b.label} className={`rounded-lg p-2 ${b.color}`}>
                   <div className="text-lg font-bold">{b.value}</div>
@@ -190,14 +346,12 @@ function AnalyticsContent() {
         </div>
       </div>
 
-      {/* ============ Queries by State ============ */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
-        <h3 className="text-sm font-bold text-gray-900 mb-4">🌎 Queries by Jurisdiction</h3>
-        {metrics.stateCounts.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-8">No state data yet</p>
-        ) : (
+      {/* ============ Queries by Jurisdiction ============ */}
+      {display.stateCounts.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-4">🌎 Queries by Jurisdiction</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-            {metrics.stateCounts.map(([state, count]) => (
+            {display.stateCounts.map(([state, count]) => (
               <div key={state} className="flex items-center gap-3">
                 <span className="text-xs font-medium text-gray-600 w-28 truncate">{state}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
@@ -211,8 +365,8 @@ function AnalyticsContent() {
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

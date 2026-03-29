@@ -344,18 +344,41 @@ export default function AppShell({ children }) {
     () => saved.current?.notifications || []
   );
 
+  // -- orgId from Neon (populated after Clerk webhook fires on first sign-in) --
+  const [orgId, setOrgId] = useState(() => saved.current?.orgId || "default");
+
   // -- Hydration flag (prevents flash of login screen on refresh) --
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // -- Load orgId from Neon API (only when Clerk is active + user is signed in) --
+  useEffect(() => {
+    if (!CLERK_ENABLED || !clerkUser.isSignedIn) return;
+    const loadOrg = async () => {
+      try {
+        const res = await fetch("/api/user/me");
+        const data = await res.json();
+        if (data.orgId && data.orgId !== "default") {
+          setOrgId(data.orgId);
+        }
+        // If the Neon user has a role different from the Clerk publicMetadata role,
+        // that's fine — we trust publicMetadata set via Clerk dashboard.
+      } catch {
+        // Non-fatal: fall back to "default"
+      }
+    };
+    loadOrg();
+  }, [clerkUser.isSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Persist state --
   useEffect(() => {
     saveState({
       tickets, auditLog, integrations, settings, notifications,
       employeeId: employee.id,
+      orgId,
     });
-  }, [tickets, auditLog, integrations, settings, notifications, employee]);
+  }, [tickets, auditLog, integrations, settings, notifications, employee, orgId]);
 
   // -- Session timeout: auto-logout after 30 min (demo mode only) --
   // Clerk handles its own session management, so we skip this for Clerk.
@@ -451,13 +474,20 @@ export default function AppShell({ children }) {
     });
   }, [currentUser]);
 
+  // -- Enrich currentUser with orgId so pages can pass it to API calls --
+  const enrichedUser = currentUser
+    ? { ...currentUser, orgId }
+    : null;
+
   const contextValue = {
     // -- Auth --
-    currentUser,
+    currentUser: enrichedUser,
     mode,
     isAdmin,
     canAccess,
     handleLogout,
+    // -- Org --
+    orgId,
     // -- Employee context --
     employee,
     setEmployee,
