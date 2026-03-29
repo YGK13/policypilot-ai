@@ -108,6 +108,13 @@ function ChatContent() {
     };
     setTickets((prev) => [ticket, ...prev]);
 
+    // -- Persist ticket to Neon Postgres (fire-and-forget) --
+    fetch("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId: "default", ticket }),
+    }).catch(() => {}); // silently fail — localStorage is the primary store
+
     addAudit(
       "RESPONSE_SENT",
       `Category: ${resp.category} | Risk: ${resp.riskScore} | Route: ${resp.routing}${resp.llm ? " | LLM" : ""}`,
