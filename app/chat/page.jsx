@@ -13,7 +13,7 @@ import DOMPurify from "dompurify";
 // ============================================================================
 
 function ChatContent() {
-  const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser } = useApp();
+  const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser, orgId } = useApp();
   const { addToast } = useToast();
 
   // -- Persist chat messages in sessionStorage so they survive page navigation --
@@ -112,7 +112,7 @@ function ChatContent() {
     fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: "default", ticket }),
+      body: JSON.stringify({ orgId: orgId || "default", ticket }),
     }).catch(() => {}); // silently fail — localStorage is the primary store
 
     addAudit(
@@ -289,12 +289,18 @@ function ChatContent() {
                       <>
                         <button
                           onClick={() => {
-                            // Mark this message as rated
                             setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, rated: "up" } : msg));
-                            // Update satisfaction on the CORRECT ticket (matched by ID)
                             setTickets(prev => prev.map(t => t.id === m.ticketId ? { ...t, satisfaction: 5 } : t));
                             addToast("success", "Thanks!", "Positive feedback recorded");
                             addAudit("CSAT_POSITIVE", `Thumbs up on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "info");
+                            // Persist to Neon (fire-and-forget)
+                            if (m.ticketId) {
+                              fetch("/api/tickets", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ orgId: orgId || "default", ticketId: m.ticketId, action: "rate", satisfaction: 5 }),
+                              }).catch(() => {});
+                            }
                           }}
                           className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-green-50 hover:text-green-600 cursor-pointer transition-colors"
                         >
@@ -306,6 +312,14 @@ function ChatContent() {
                             setTickets(prev => prev.map(t => t.id === m.ticketId ? { ...t, satisfaction: 1 } : t));
                             addToast("info", "Noted", "We'll improve this response");
                             addAudit("CSAT_NEGATIVE", `Thumbs down on: "${(m.content || "").replace(/<[^>]*>/g, "").substring(0, 50)}..."`, "warning");
+                            // Persist to Neon (fire-and-forget)
+                            if (m.ticketId) {
+                              fetch("/api/tickets", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ orgId: orgId || "default", ticketId: m.ticketId, action: "rate", satisfaction: 1 }),
+                              }).catch(() => {});
+                            }
                           }}
                           className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
                         >
