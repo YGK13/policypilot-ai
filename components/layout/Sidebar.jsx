@@ -36,6 +36,7 @@ const NAV_GROUPS = [
     label: 'Admin',
     adminOnly: true,
     items: [
+      { key: 'team',     href: '/team',     icon: '👥', label: 'Team Members' },
       { key: 'audit',    href: '/audit',    icon: '🔍', label: 'Audit Log' },
       { key: 'settings', href: '/settings', icon: '⚙️', label: 'Settings' },
       { key: 'billing',  href: '/billing',  icon: '💳', label: 'Billing & Plans' },

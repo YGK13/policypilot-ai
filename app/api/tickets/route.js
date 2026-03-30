@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import {
   createTicket, getTickets, updateTicketStatus,
-  updateTicketSatisfaction, isDbAvailable
+  updateTicketSatisfaction, isDbAvailable, getOrgSettings
 } from "@/lib/db";
 
 export async function GET(request) {
@@ -46,6 +46,26 @@ export async function POST(request) {
     }
 
     const created = await createTicket(orgId, ticket);
+
+    // -- Fire-and-forget escalation email when routing is hr or legal --
+    const shouldNotify = ticket.routing === "hr" || ticket.routing === "legal";
+    if (shouldNotify && process.env.RESEND_API_KEY) {
+      getOrgSettings(orgId).then((settings) => {
+        if (!settings.emailEnabled || !settings.supportEmail) return;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        fetch(`${baseUrl}/api/notify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticket,
+            toEmail: settings.supportEmail,
+            companyName: settings.companyName,
+            supportEmail: settings.supportEmail,
+          }),
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ ticket: created }, { status: 201 });
   } catch (err) {
     console.error("[API] createTicket error:", err);

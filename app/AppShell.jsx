@@ -79,8 +79,8 @@ export const ROLES = {
   },
   hr_admin: {
     label: "HR Administrator",
-    description: "Full access: cases, settings, billing, audit, API keys",
-    pages: ["/", "/chat", "/self-service", "/tickets", "/documents", "/cases", "/integrations", "/policies", "/analytics", "/audit", "/settings", "/billing", "/api-keys", "/onboarding"],
+    description: "Full access: cases, team, settings, billing, audit, API keys",
+    pages: ["/", "/chat", "/self-service", "/tickets", "/documents", "/cases", "/integrations", "/policies", "/analytics", "/audit", "/team", "/settings", "/billing", "/api-keys", "/onboarding"],
     color: "bg-brand-600",
   },
   legal: {
