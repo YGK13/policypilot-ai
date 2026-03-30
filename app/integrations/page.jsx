@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../AppShell";
 import CONNECTORS from "@/lib/data/connectors";
 import Modal from "@/components/ui/Modal";
@@ -21,11 +21,37 @@ const CATEGORIES = [
 ];
 
 function IntegrationsContent() {
-  const { integrations, setIntegrations, addAudit } = useApp();
+  const { integrations, setIntegrations, addAudit, orgId, currentUser } = useApp();
   const [activeTab, setActiveTab] = useState("hris");
   const [configModal, setConfigModal] = useState(null); // connector object or null
   const [fieldValues, setFieldValues] = useState({});
   const [syncToggles, setSyncToggles] = useState({});
+
+  // -- Load persisted integration state from Neon on mount --
+  // Converts DB rows { connector_id, status } into context shape { [id]: { connected: bool } }
+  useEffect(() => {
+    const oid = orgId || "default";
+    fetch(`/api/integrations?orgId=${oid}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.integrations?.length) return;
+        const merged = {};
+        data.integrations.forEach((row) => {
+          if (row.status === "connected") {
+            merged[row.connector_id] = {
+              connected: true,
+              connectedAt: row.last_sync_at || row.created_at,
+              config: row.config || {},
+            };
+          }
+        });
+        // Merge DB state into existing context (don't overwrite anything the session already set)
+        if (Object.keys(merged).length) {
+          setIntegrations((prev) => ({ ...merged, ...prev }));
+        }
+      })
+      .catch(() => {});
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Get connectors for the active tab --
   const connectors = CONNECTORS[activeTab] || [];
@@ -42,18 +68,33 @@ function IntegrationsContent() {
     setConfigModal(connector);
   }, []);
 
-  // -- Connect a connector --
+  // -- Connect a connector (optimistic + fire-and-forget DB persist) --
   const handleConnect = useCallback(() => {
     if (!configModal) return;
+    const now = new Date().toISOString();
+    const selectedSyncFields = Object.keys(syncToggles).filter((k) => syncToggles[k]);
     setIntegrations((prev) => ({
       ...prev,
-      [configModal.id]: { connected: true, connectedAt: new Date().toISOString() },
+      [configModal.id]: { connected: true, connectedAt: now, config: fieldValues },
     }));
     addAudit("INTEGRATION_CONNECTED", `Connected ${configModal.name}`, "info");
+    // -- Persist to Neon --
+    fetch("/api/integrations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgId: orgId || "default",
+        connectorId: configModal.id,
+        status: "connected",
+        config: fieldValues,
+        syncFields: selectedSyncFields,
+        actor: currentUser?.name || "Admin",
+      }),
+    }).catch(() => {});
     setConfigModal(null);
-  }, [configModal, setIntegrations, addAudit]);
+  }, [configModal, syncToggles, fieldValues, orgId, currentUser, setIntegrations, addAudit]);
 
-  // -- Disconnect a connector --
+  // -- Disconnect a connector (optimistic + fire-and-forget DB persist) --
   const handleDisconnect = useCallback(
     (connectorId, connectorName) => {
       setIntegrations((prev) => {
@@ -62,8 +103,18 @@ function IntegrationsContent() {
         return next;
       });
       addAudit("INTEGRATION_DISCONNECTED", `Disconnected ${connectorName}`, "warning");
+      fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgId || "default",
+          connectorId,
+          status: "disconnected",
+          actor: currentUser?.name || "Admin",
+        }),
+      }).catch(() => {});
     },
-    [setIntegrations, addAudit]
+    [orgId, currentUser, setIntegrations, addAudit]
   );
 
   return (

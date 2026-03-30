@@ -13,7 +13,7 @@ const HAS_STRIPE = !!process.env.STRIPE_SECRET_KEY;
 
 export async function POST(request) {
   try {
-    const { planId, planName, priceInCents } = await request.json();
+    const { planId, planName, priceInCents, orgId } = await request.json();
 
     if (!planId || !planName || !priceInCents) {
       return NextResponse.json(
@@ -57,6 +57,7 @@ export async function POST(request) {
       metadata: {
         planId,
         planName,
+        orgId: orgId || "default",
       },
     });
 
