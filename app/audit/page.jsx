@@ -45,30 +45,52 @@ function AuditContent() {
   const [dbEntries, setDbEntries] = useState([]);
   const [dbLoading, setDbLoading] = useState(false);
   const [dbError, setDbError] = useState(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 100;
 
   // -- Filter state --
   const [levelFilter, setLevelFilter] = useState("all");
 
-  // -- Fetch audit log from Neon --
-  useEffect(() => {
-    const load = async () => {
-      setDbLoading(true);
-      setDbError(null);
-      try {
-        const orgId = currentUser?.orgId || "default";
-        const res = await fetch(`/api/audit?orgId=${orgId}&limit=200`);
-        const data = await res.json();
-        if (!data.demo && Array.isArray(data.entries)) {
-          setDbEntries(data.entries.map(normalizeDbEntry));
-        }
-      } catch (err) {
-        setDbError("Could not load from database. Showing session data only.");
-      } finally {
-        setDbLoading(false);
+  // -- Fetch a page of audit entries from Neon --
+  const loadPage = useCallback(async (pageOffset) => {
+    setDbLoading(true);
+    setDbError(null);
+    try {
+      const orgId = currentUser?.orgId || "default";
+      const res = await fetch(
+        `/api/audit?orgId=${orgId}&limit=${PAGE_SIZE}&offset=${pageOffset}`
+      );
+      const data = await res.json();
+      if (!data.demo && Array.isArray(data.entries)) {
+        const normalized = data.entries.map(normalizeDbEntry);
+        setDbEntries((prev) =>
+          pageOffset === 0 ? normalized : [...prev, ...normalized]
+        );
+        // If we got fewer than PAGE_SIZE rows, there are no more pages
+        setHasMore(data.entries.length === PAGE_SIZE);
+      } else {
+        setHasMore(false);
       }
-    };
-    load();
+    } catch (err) {
+      setDbError("Could not load from database. Showing session data only.");
+      setHasMore(false);
+    } finally {
+      setDbLoading(false);
+    }
   }, [currentUser]);
+
+  // -- Load first page on mount --
+  useEffect(() => {
+    loadPage(0);
+  }, [loadPage]);
+
+  // -- Load next page --
+  const loadMore = useCallback(() => {
+    const nextOffset = offset + PAGE_SIZE;
+    setOffset(nextOffset);
+    loadPage(nextOffset);
+  }, [offset, loadPage]);
 
   // -- Merge: DB entries (authoritative) + in-memory session entries
   //    Deduplicate by ID prefix: DB rows use numeric IDs, session entries use AUD-<timestamp>
@@ -130,7 +152,7 @@ function AuditContent() {
             {!dbLoading && (
               <>
                 {dbEntries.length > 0
-                  ? `${dbEntries.length} entries from database`
+                  ? `${dbEntries.length} entries from database${hasMore ? " (more available)" : " (all loaded)"}`
                   : "Session data only (no database connected)"
                 }
                 {auditLog.filter((e) => !new Set(dbEntries.map(d => d.id?.toString())).has(e.id?.toString())).length > 0 && (
@@ -184,7 +206,7 @@ function AuditContent() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" id="audit-entries">
           {displayed.map((entry) => {
             const config = LEVEL_CONFIG[entry.level] || LEVEL_CONFIG.info;
             return (
@@ -223,6 +245,21 @@ function AuditContent() {
             );
           })}
         </div>
+      )}
+
+      {/* ============ Load More (pagination) ============ */}
+      {hasMore && !dbLoading && dbEntries.length > 0 && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={loadMore}
+            className="px-5 py-2.5 text-sm font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100 transition-colors"
+          >
+            Load More ({dbEntries.length} loaded so far)
+          </button>
+        </div>
+      )}
+      {dbLoading && dbEntries.length > 0 && (
+        <div className="mt-4 text-center text-xs text-gray-400 animate-pulse">Loading more entries…</div>
       )}
     </div>
   );

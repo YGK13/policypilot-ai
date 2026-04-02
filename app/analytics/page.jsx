@@ -153,12 +153,31 @@ function AnalyticsContent() {
     // State breakdown from API
     const stateCounts = (apiStats.byState || []).map((r) => [r.state, parseInt(r.count, 10)]);
 
+    // Routing breakdown from API (auto / hr / legal)
+    const routingMap = {};
+    (apiStats.byRouting || []).forEach((r) => { routingMap[r.routing] = parseInt(r.count, 10); });
+    const autoRouted = routingMap.auto || 0;
+    const hrRouted = routingMap.hr || 0;
+    const legalRouted = routingMap.legal || 0;
+
+    // Risk bucket distribution from API
+    const rb = apiStats.byRisk || {};
+    const riskBuckets = {
+      low:      parseInt(rb.low || 0, 10),
+      medium:   parseInt(rb.medium || 0, 10),
+      high:     parseInt(rb.high || 0, 10),
+      critical: parseInt(rb.critical || 0, 10),
+    };
+
     return {
       total, resolved, escalated,
       pending: total - resolved - escalated,
       resolutionRate: total > 0 ? Math.round((resolved / total) * 100) : 0,
       avgRisk,
-      catCounts, stateCounts,
+      autoRate: total > 0 ? Math.round((autoRouted / total) * 100) : 0,
+      hrRate: total > 0 ? Math.round((hrRouted / total) * 100) : 0,
+      legalRate: total > 0 ? Math.round((legalRouted / total) * 100) : 0,
+      catCounts, stateCounts, riskBuckets,
       avgSatisfaction, avgResolutionHours,
     };
   }, [isApiMode, apiStats]);
@@ -237,7 +256,7 @@ function AnalyticsContent() {
             value: display.avgRisk,
             sub: isApiMode && apiMetrics?.avgSatisfaction !== "—"
               ? `Satisfaction: ${apiMetrics.avgSatisfaction}/5`
-              : `${localMetrics.riskBuckets?.critical || 0} critical`,
+              : `${display.riskBuckets?.critical || 0} critical`,
             cls: display.avgRisk > 50 ? "red" : "blue",
           },
         ].map((s) => (
@@ -267,7 +286,7 @@ function AnalyticsContent() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-4">
             <div className="text-xs text-gray-500 font-medium mb-1">Auto-Resolve Rate</div>
-            <div className="text-2xl font-bold text-gray-900">{localMetrics.autoRate}%</div>
+            <div className="text-2xl font-bold text-gray-900">{display.autoRate ?? 0}%</div>
           </div>
         </div>
       )}
@@ -303,38 +322,37 @@ function AnalyticsContent() {
         {/* ============ Routing Distribution + Risk Buckets ============ */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
           <h3 className="text-sm font-bold text-gray-900 mb-4">🔀 Routing Distribution</h3>
-          {/* Use local routing if API (API doesn't return routing breakdown) */}
+          {/* Routing bars — use display (API or local) */}
           <div className="space-y-4">
-            {localMetrics.routingCounts.map((r) => {
-              const pct = localMetrics.total > 0
-                ? Math.round((r.value / localMetrics.total) * 100)
-                : 0;
-              return (
-                <div key={r.label}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">{r.label}</span>
-                    <span className="text-gray-500">{r.value} ({pct}%)</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: r.color }}
-                    />
-                  </div>
+            {[
+              { label: "Auto-Resolved", value: display.autoRate ?? 0, key: "auto", color: "#22c55e" },
+              { label: "HR Escalated",  value: display.hrRate ?? 0, key: "hr", color: "#f59e0b" },
+              { label: "Legal Routed",  value: display.legalRate ?? 0, key: "legal", color: "#ef4444" },
+            ].map((r) => (
+              <div key={r.key}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-medium text-gray-700">{r.label}</span>
+                  <span className="text-gray-500">{r.value}%</span>
                 </div>
-              );
-            })}
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.max(r.value, 3)}%`, backgroundColor: r.color }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Risk distribution mini-table */}
+          {/* Risk distribution mini-table — use display (API or local) */}
           <div className="mt-6 pt-4 border-t border-gray-100">
             <h4 className="text-xs font-bold text-gray-700 mb-2">Risk Distribution</h4>
             <div className="grid grid-cols-4 gap-2 text-center">
               {[
-                { label: "Low", value: localMetrics.riskBuckets.low, color: "text-green-600 bg-green-50" },
-                { label: "Medium", value: localMetrics.riskBuckets.medium, color: "text-blue-600 bg-blue-50" },
-                { label: "High", value: localMetrics.riskBuckets.high, color: "text-amber-600 bg-amber-50" },
-                { label: "Critical", value: localMetrics.riskBuckets.critical, color: "text-red-600 bg-red-50" },
+                { label: "Low",      value: display.riskBuckets?.low ?? 0,      color: "text-green-600 bg-green-50" },
+                { label: "Medium",   value: display.riskBuckets?.medium ?? 0,   color: "text-blue-600 bg-blue-50" },
+                { label: "High",     value: display.riskBuckets?.high ?? 0,     color: "text-amber-600 bg-amber-50" },
+                { label: "Critical", value: display.riskBuckets?.critical ?? 0, color: "text-red-600 bg-red-50" },
               ].map((b) => (
                 <div key={b.label} className={`rounded-lg p-2 ${b.color}`}>
                   <div className="text-lg font-bold">{b.value}</div>

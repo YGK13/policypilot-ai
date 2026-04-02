@@ -429,23 +429,32 @@ export default function AppShell({ children }) {
 
   // -- Add audit entry helper --
   const addAudit = useCallback(
-    (action, detail, level = "info") => {
+    (action, detail, level = "info", metadata = {}) => {
       const userName = currentUser?.name || `${employee.firstName} ${employee.lastName}`;
-      setAuditLog((prev) => [
-        {
-          id: `AUD-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          displayTime: new Date().toLocaleString([], {
-            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-          }),
-          action, detail, level,
-          employee: userName,
-          role: currentUser?.role || "unknown",
-        },
-        ...prev,
-      ]);
+      const entry = {
+        id: `AUD-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        displayTime: new Date().toLocaleString([], {
+          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+        }),
+        action, detail, level,
+        employee: userName,
+        role: currentUser?.role || "unknown",
+      };
+      setAuditLog((prev) => [entry, ...prev]);
+
+      // -- Persist to Neon (fire-and-forget) so entries survive page refresh --
+      const oid = orgId || "default";
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: oid,
+          entry: { action, detail, level, userName, userRole: currentUser?.role || "unknown", metadata },
+        }),
+      }).catch(() => {});
     },
-    [employee, currentUser]
+    [employee, currentUser, orgId]
   );
 
   const addNotification = useCallback((title, detail, type = "info") => {

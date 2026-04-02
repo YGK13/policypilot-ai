@@ -12,10 +12,23 @@ import PLANS from "@/lib/data/plans";
 // ============================================================================
 
 function BillingContent() {
-  const { addAudit, mode } = useApp();
+  const { addAudit, mode, orgId } = useApp();
   const { addToast } = useToast();
   const [currentPlan, setCurrentPlan] = useState("professional");
   const [loading, setLoading] = useState(null); // which plan is loading
+
+  // -- Load current plan from Neon on mount (source of truth) --
+  useEffect(() => {
+    const oid = orgId || "default";
+    fetch(`/api/billing?orgId=${oid}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.plan && !data.error) {
+          setCurrentPlan(data.plan);
+        }
+      })
+      .catch(() => {});
+  }, [orgId]);
 
   // -- Check URL params for Stripe success/cancel --
   useEffect(() => {
