@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useApp } from "../AppShell";
 import POLICIES from "@/lib/data/policies";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
@@ -21,7 +21,7 @@ const STATUS_PILL = { enacted: "pill-green", enforcing: "pill-amber", guidance: 
 const SKIP_KEYS = ["flag"];
 
 function PoliciesContent() {
-  const { employee, isAdmin, settings, setSettings, addAudit, addNotification, currentUser } = useApp();
+  const { employee, isAdmin, settings, setSettings, addAudit, addNotification, currentUser, orgId } = useApp();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState("policies");
   const [regFilter, setRegFilter] = useState("all");
@@ -35,6 +35,50 @@ function PoliciesContent() {
   const [autoImplementEnabled, setAutoImplementEnabled] = useState(
     () => settings.autoImplementUpdates || false
   );
+
+  // -- Load reviews from Neon on mount and merge into state --
+  useEffect(() => {
+    const oid = orgId || "default";
+    fetch(`/api/regulatory-reviews?orgId=${oid}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.reviews?.length) return;
+        // -- Convert DB rows to in-memory shape { [update_id]: { status, reviewerName, ... } } --
+        const dbMap = {};
+        data.reviews.forEach((row) => {
+          dbMap[row.update_id] = {
+            status: row.status,
+            reviewedBy: row.reviewer_name,
+            reviewedAt: row.created_at,
+            notes: row.notes || "",
+            affectedPolicies: row.affected_policies || [],
+          };
+        });
+        // -- Merge: DB is authoritative, but don't overwrite session changes --
+        setReviewedUpdates((prev) => ({ ...dbMap, ...prev }));
+        setSettings((prev) => ({
+          ...prev,
+          reviewedUpdates: { ...dbMap, ...(prev.reviewedUpdates || {}) },
+        }));
+      })
+      .catch(() => {});
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -- Fire-and-forget POST to Neon for a single review action --
+  const persistOneReview = useCallback((updateId, reviewData, affectedPolicies) => {
+    fetch("/api/regulatory-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgId: orgId || "default",
+        updateId,
+        status: reviewData.status,
+        reviewerName: reviewData.reviewedBy || reviewData.implementedBy || "Admin",
+        notes: reviewData.notes || null,
+        affectedPolicies: affectedPolicies || reviewData.affectedPolicies || [],
+      }),
+    }).catch(() => {});
+  }, [orgId]);
 
   // -- Persist reviewed updates and auto-implement setting to settings --
   const persistReviewed = useCallback((updated) => {
@@ -88,34 +132,30 @@ function PoliciesContent() {
 
   // -- Mark as reviewed (admin manually reviewed, no auto-apply) --
   const markReviewed = useCallback((updateId, notes) => {
-    const updated = {
-      ...reviewedUpdates,
-      [updateId]: {
-        status: "reviewed",
-        reviewedBy: currentUser?.name || "Admin",
-        reviewedAt: new Date().toISOString(),
-        notes: notes || "",
-      },
+    const reviewData = {
+      status: "reviewed",
+      reviewedBy: currentUser?.name || "Admin",
+      reviewedAt: new Date().toISOString(),
+      notes: notes || "",
     };
-    persistReviewed(updated);
+    persistReviewed({ ...reviewedUpdates, [updateId]: reviewData });
+    persistOneReview(updateId, reviewData, []);
     addAudit("POLICY_REVIEWED", `Regulatory update ${updateId} reviewed by ${currentUser?.name}`, "info");
     addToast("success", "Marked Reviewed", "Policy marked as reviewed — no changes applied.");
     setReviewModal(null);
-  }, [reviewedUpdates, currentUser, persistReviewed, addAudit, addToast]);
+  }, [reviewedUpdates, currentUser, persistReviewed, persistOneReview, addAudit, addToast]);
 
   // -- Implement update: applies changes to the AI engine --
   const implementUpdate = useCallback((update, notes) => {
-    const updated = {
-      ...reviewedUpdates,
-      [update.id]: {
-        status: "implemented",
-        implementedBy: currentUser?.name || "System (Auto)",
-        implementedAt: new Date().toISOString(),
-        notes: notes || "Auto-implemented",
-        affectedPolicies: update.affectedPolicies,
-      },
+    const reviewData = {
+      status: "implemented",
+      implementedBy: currentUser?.name || "System (Auto)",
+      implementedAt: new Date().toISOString(),
+      notes: notes || "Implemented by admin",
+      affectedPolicies: update.affectedPolicies,
     };
-    persistReviewed(updated);
+    persistReviewed({ ...reviewedUpdates, [update.id]: reviewData });
+    persistOneReview(update.id, reviewData, update.affectedPolicies);
     addAudit(
       "POLICY_IMPLEMENTED",
       `Regulatory update "${update.title}" implemented. Affected policies: ${(update.affectedPolicies || []).join(", ")}`,
@@ -128,33 +168,40 @@ function PoliciesContent() {
     );
     addToast("success", "Implemented!", `${(update.affectedPolicies || []).length} policies updated with new regulatory guidance.`);
     setReviewModal(null);
-  }, [reviewedUpdates, currentUser, persistReviewed, addAudit, addNotification, addToast]);
+  }, [reviewedUpdates, currentUser, persistReviewed, persistOneReview, addAudit, addNotification, addToast]);
 
   // -- Auto-implement all pending updates --
   const autoImplementAll = useCallback(() => {
     let count = 0;
     const updated = { ...reviewedUpdates };
+    const toPost = [];
     REGULATORY_UPDATES.forEach((u) => {
       if (!updated[u.id]) {
-        updated[u.id] = {
+        const reviewData = {
           status: "implemented",
           implementedBy: "System (Auto-Implement)",
           implementedAt: new Date().toISOString(),
           notes: "Automatically implemented per admin settings",
           affectedPolicies: u.affectedPolicies,
         };
+        updated[u.id] = reviewData;
+        toPost.push({ updateId: u.id, reviewData, affectedPolicies: u.affectedPolicies });
         count++;
       }
     });
     if (count > 0) {
       persistReviewed(updated);
+      // -- Persist each to Neon (fire-and-forget) --
+      toPost.forEach(({ updateId, reviewData, affectedPolicies }) => {
+        persistOneReview(updateId, reviewData, affectedPolicies);
+      });
       addAudit("BULK_IMPLEMENT", `Auto-implemented ${count} regulatory updates`, "success");
       addNotification("Bulk Policy Update", `${count} regulatory updates auto-implemented into the AI engine.`, "success");
       addToast("success", "All Updated!", `${count} regulatory updates implemented.`);
     } else {
       addToast("info", "Nothing to update", "All regulatory updates are already reviewed or implemented.");
     }
-  }, [reviewedUpdates, persistReviewed, addAudit, addNotification, addToast]);
+  }, [reviewedUpdates, persistReviewed, persistOneReview, addAudit, addNotification, addToast]);
 
   // -- Count pending updates --
   const pendingCount = REGULATORY_UPDATES.filter((u) => !reviewedUpdates[u.id]).length;

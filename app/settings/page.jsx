@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../AppShell";
 import { useToast } from "@/components/layout/ToastProvider";
 import Toggle from "@/components/ui/Toggle";
@@ -17,6 +17,24 @@ function SettingsContent() {
   const { addToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
+  const [dbSynced, setDbSynced] = useState(false);
+
+  // -- Load settings from Neon on mount (Neon is authoritative for multi-user orgs) --
+  // Merges DB state over localStorage: DB wins for shared fields, preserving any
+  // unsaved local changes the user may have made since the last PATCH.
+  useEffect(() => {
+    const oid = orgId || "default";
+    fetch(`/api/settings?orgId=${oid}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.settings && Object.keys(data.settings).length > 0 && !data.demo) {
+          // -- DB settings override localStorage on first load --
+          setSettings((prev) => ({ ...data.settings, ...prev }));
+          setDbSynced(true);
+        }
+      })
+      .catch(() => {});
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Update a single key immediately (live preview for sliders/color) --
   const update = useCallback((key, value) => {
@@ -60,6 +78,7 @@ function SettingsContent() {
           <h2 className="text-lg font-bold text-gray-900">Settings</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Configure company branding and AI behavior
+            {dbSynced && !savedAt && <span className="ml-2 text-blue-600 font-medium">↓ Loaded from database</span>}
             {savedAt && <span className="ml-2 text-green-600 font-medium">✓ Saved at {savedAt}</span>}
           </p>
         </div>

@@ -16,6 +16,17 @@ function ChatContent() {
   const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser, orgId } = useApp();
   const { addToast } = useToast();
 
+  // -- Session ID: stable per browser tab so history loads correctly --
+  const sessionId = useRef(
+    typeof window !== "undefined"
+      ? (sessionStorage.getItem("aihrpilot_session_id") || (() => {
+          const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          sessionStorage.setItem("aihrpilot_session_id", id);
+          return id;
+        })())
+      : "ssr"
+  );
+
   // -- Persist chat messages in sessionStorage so they survive page navigation --
   const CHAT_KEY = `aihrpilot_chat_${employee.id}`;
   const [messages, setMessages] = useState(() => {
@@ -28,8 +39,53 @@ function ChatContent() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [context, setContext] = useState([]);
-  const [llmEnabled, setLlmEnabled] = useState(true);
+  // -- LLM toggle persisted to localStorage so it survives page reloads --
+  const [llmEnabled, setLlmEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("aihrpilot_llm_enabled");
+    return saved !== null ? saved === "true" : true;
+  });
   const chatEndRef = useRef(null);
+
+  // -- Persist llmEnabled to localStorage on change --
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("aihrpilot_llm_enabled", String(llmEnabled));
+    }
+  }, [llmEnabled]);
+
+  // -- Load recent chat history from Neon on mount (merges with sessionStorage) --
+  useEffect(() => {
+    if (messages.length > 1) return; // already have conversation loaded from sessionStorage
+    const oid = orgId || "default";
+    const sid = sessionId.current;
+    fetch(`/api/chat?orgId=${oid}&sessionId=${encodeURIComponent(sid)}&limit=30`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.messages?.length) return;
+        // -- Convert DB rows to client message shape --
+        const dbMessages = data.messages.map((row) => ({
+          id: row.id,
+          type: row.role === "user" ? "user" : "bot",
+          content: row.content,
+          time: new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          source: row.metadata?.source,
+          routing: row.metadata?.routing,
+          riskScore: row.metadata?.riskScore,
+          category: row.metadata?.category,
+          confidence: row.metadata?.confidence,
+          policyId: row.metadata?.policyId,
+          llm: row.metadata?.llm || false,
+          fromDb: true,
+        }));
+        // -- Only replace state if session storage had nothing --
+        setMessages((prev) => {
+          if (prev.length > 1) return prev; // session storage already populated
+          return dbMessages;
+        });
+      })
+      .catch(() => {});
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Save messages to sessionStorage on change --
   useEffect(() => {
@@ -156,6 +212,9 @@ function ChatContent() {
             query: q,
             employee_id: employee.id,
             jurisdiction: employee.state,
+            orgId: orgId || "default",
+            userId: currentUser?.id || null,
+            sessionId: sessionId.current,
           }),
         });
 

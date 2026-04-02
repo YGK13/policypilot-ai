@@ -4,6 +4,7 @@ import { generateResponse } from "@/lib/engine/response-gen";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
 import POLICIES from "@/lib/data/policies";
+import { saveChatMessage, getChatHistory, isDbAvailable } from "@/lib/db";
 
 // ============================================================================
 // POST /api/chat — Hybrid LLM + local policy engine for HR queries
@@ -83,10 +84,36 @@ ${buildPolicyCatalog()}
 8. Do NOT use markdown headers or code blocks — use HTML formatting only.`;
 }
 
+// ============================================================================
+// GET /api/chat?orgId=xxx&userId=xxx&sessionId=xxx&limit=50
+// Load chat history for a user/session from Neon
+// ============================================================================
+export async function GET(request) {
+  if (!isDbAvailable()) {
+    return NextResponse.json({ messages: [], demo: true });
+  }
+  const url = new URL(request.url);
+  const orgId = url.searchParams.get("orgId") || "default";
+  const userId = url.searchParams.get("userId");
+  const sessionId = url.searchParams.get("sessionId");
+  const limit = parseInt(url.searchParams.get("limit") || "50");
+
+  try {
+    const rows = await getChatHistory(orgId, userId, sessionId, { limit });
+    return NextResponse.json({ messages: rows });
+  } catch (err) {
+    console.error("[API] getChatHistory error:", err);
+    return NextResponse.json({ error: "Failed to load chat history" }, { status: 500 });
+  }
+}
+
+// ============================================================================
+// POST /api/chat — Hybrid LLM + local policy engine for HR queries
+// ============================================================================
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { query, employee_id, jurisdiction, use_llm } = body;
+    const { query, employee_id, jurisdiction, use_llm, orgId, userId, sessionId } = body;
 
     if (!query) {
       return NextResponse.json(
@@ -113,8 +140,41 @@ export async function POST(request) {
       };
     }
 
+    // -- Save user message to Neon (fire-and-forget) --
+    const saveOrg = orgId || "default";
+    if (isDbAvailable()) {
+      saveChatMessage(saveOrg, {
+        userId: userId || null,
+        sessionId: sessionId || null,
+        role: "user",
+        content: query,
+        metadata: { employeeId: employee_id, jurisdiction },
+      }).catch(() => {});
+    }
+
     // -- Always generate local response for triage metadata --
     const localResponse = generateResponse(query, employee);
+
+    // -- Helper to persist assistant response and return JSON --
+    const respond = (data) => {
+      if (isDbAvailable()) {
+        saveChatMessage(saveOrg, {
+          userId: userId || null,
+          sessionId: sessionId || null,
+          role: "assistant",
+          content: data.answer,
+          metadata: {
+            category: data.category,
+            riskScore: data.riskScore,
+            routing: data.routing,
+            llm: data.llm,
+            confidence: data.confidence,
+            policyId: data.policyId,
+          },
+        }).catch(() => {});
+      }
+      return NextResponse.json(data);
+    };
 
     // -- If LLM is available, call via AI Gateway or direct provider --
     if (HAS_AI_GATEWAY && use_llm !== false) {
@@ -127,7 +187,7 @@ export async function POST(request) {
           maxTokens: 1024,
         });
 
-        return NextResponse.json({
+        return respond({
           answer: text,
           source: localResponse.source || "AI HR Pilot (LLM)",
           category: localResponse.category,
@@ -138,15 +198,31 @@ export async function POST(request) {
           confidence: Math.min(98, localResponse.confidence + 10),
           policyId: localResponse.policyId,
           llm: true,
+          llm_attempted: true,
+          llm_failed: false,
         });
       } catch (llmError) {
         console.error("[AI HR Pilot] LLM call failed, falling back to local:", llmError.message);
-        // Fall through to local response below
+        // Fall through to local response below with failure flag
+        return respond({
+          answer: localResponse.answer,
+          source: localResponse.source,
+          category: localResponse.category,
+          riskScore: localResponse.riskScore,
+          routing: localResponse.routing,
+          flags: localResponse.flags,
+          disclaimer: localResponse.disclaimer,
+          confidence: localResponse.confidence,
+          policyId: localResponse.policyId,
+          llm: false,
+          llm_attempted: true,
+          llm_failed: true,
+        });
       }
     }
 
-    // -- Local-only response (no LLM or LLM failed) --
-    return NextResponse.json({
+    // -- Local-only response (no LLM configured) --
+    return respond({
       answer: localResponse.answer,
       source: localResponse.source,
       category: localResponse.category,
@@ -157,6 +233,8 @@ export async function POST(request) {
       confidence: localResponse.confidence,
       policyId: localResponse.policyId,
       llm: false,
+      llm_attempted: false,
+      llm_failed: false,
     });
   } catch (error) {
     console.error("[AI HR Pilot] Chat API error:", error);
