@@ -36,9 +36,13 @@ function SelfServiceContent() {
     notes: "",
   });
 
-  const submitPTO = useCallback(() => {
+  const submitPTO = useCallback(async () => {
     if (!ptoForm.startDate || !ptoForm.endDate) {
       addToast("error", "Missing Fields", "Please select start and end dates");
+      return;
+    }
+    if (new Date(ptoForm.startDate) > new Date(ptoForm.endDate)) {
+      addToast("error", "Invalid Dates", "Start date must be before or equal to end date");
       return;
     }
     const ticketId = genId();
@@ -62,20 +66,29 @@ function SelfServiceContent() {
     };
     // -- Optimistic local add --
     setTickets((prev) => [ticket, ...prev]);
-    addAudit("PTO_REQUEST", `${ptoForm.type}: ${ptoForm.startDate} to ${ptoForm.endDate}`, "info");
-    addNotification("PTO Request Submitted", `${employee.firstName}: ${ptoForm.type} ${ptoForm.startDate} - ${ptoForm.endDate}`, "info");
-    addToast("success", "PTO Request Submitted", `Request ${ticketId} sent to your manager for approval`);
     setPtoForm({ type: "vacation", startDate: "", endDate: "", notes: "" });
     setActiveAction(null);
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: orgId || "default",
-        ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
-      }),
-    }).catch(() => {});
+
+    // -- Persist to Neon; show error toast and rollback if it fails --
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgId || "default",
+          ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // -- Audit and notify only after DB confirmation --
+      addAudit("PTO_REQUEST", `${ptoForm.type}: ${ptoForm.startDate} to ${ptoForm.endDate}`, "info");
+      addNotification("PTO Request Submitted", `${employee.firstName}: ${ptoForm.type} ${ptoForm.startDate} - ${ptoForm.endDate}`, "info");
+      addToast("success", "PTO Request Submitted", `Request ${ticketId} sent to your manager for approval`);
+    } catch {
+      // -- Rollback optimistic add --
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      addToast("error", "Submission Failed", "Could not save your PTO request. Please try again.");
+    }
   }, [ptoForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
 
   // ============ PERSONAL INFO FORM ============
@@ -106,7 +119,7 @@ function SelfServiceContent() {
     reason: "",
   });
 
-  const submitLeave = useCallback(() => {
+  const submitLeave = useCallback(async () => {
     if (!leaveForm.startDate) {
       addToast("error", "Missing Fields", "Please select a start date");
       return;
@@ -132,20 +145,27 @@ function SelfServiceContent() {
     };
     // -- Optimistic local add --
     setTickets((prev) => [ticket, ...prev]);
-    addAudit("LEAVE_REQUEST", `${leaveForm.leaveType.toUpperCase()} from ${leaveForm.startDate}`, "warning");
-    addNotification("Leave of Absence Request", `${employee.firstName}: ${leaveForm.leaveType.toUpperCase()} starting ${leaveForm.startDate}`, "warning");
-    addToast("success", "Leave Request Submitted", `Request ${ticketId} sent to HR for review`);
     setLeaveForm({ leaveType: "fmla", startDate: "", estimatedReturn: "", reason: "" });
     setActiveAction(null);
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: orgId || "default",
-        ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
-      }),
-    }).catch(() => {});
+
+    // -- Persist to Neon; rollback on failure --
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgId || "default",
+          ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      addAudit("LEAVE_REQUEST", `${leaveForm.leaveType.toUpperCase()} from ${leaveForm.startDate}`, "warning");
+      addNotification("Leave of Absence Request", `${employee.firstName}: ${leaveForm.leaveType.toUpperCase()} starting ${leaveForm.startDate}`, "warning");
+      addToast("success", "Leave Request Submitted", `Request ${ticketId} sent to HR for review`);
+    } catch {
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      addToast("error", "Submission Failed", "Could not save your leave request. Please try again.");
+    }
   }, [leaveForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
 
   // ============ RENDER ============

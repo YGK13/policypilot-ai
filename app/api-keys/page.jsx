@@ -134,17 +134,28 @@ function ApiKeysContent() {
     }
   }, [newKeyName, orgId, user, addAudit]);
 
-  // -- Revoke a key --
+  // -- Revoke a key: await DB confirmation before updating UI and audit --
   const revokeKey = useCallback(async (keyId, keyName) => {
     // -- Optimistic update --
-    setKeys((prev) => prev.map((k) => k.id === keyId ? { ...k, status: "revoked", revoked_at: new Date().toISOString() } : k));
-    addAudit("API_KEY_REVOKED", `Revoked API key: ${keyName}`, "warning");
-
-    fetch("/api/api-keys", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", keyId, action: "revoke", revokedBy: user?.name || "Admin" }),
-    }).catch(() => {});
+    setKeys((prev) => prev.map((k) =>
+      k.id === keyId ? { ...k, status: "revoked", revoked_at: new Date().toISOString() } : k
+    ));
+    try {
+      const res = await fetch("/api/api-keys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", keyId, action: "revoke", revokedBy: user?.name || "Admin" }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // -- Audit only after confirmed DB revocation --
+      addAudit("API_KEY_REVOKED", `Revoked API key: ${keyName}`, "warning");
+    } catch (err) {
+      // -- Rollback optimistic update if DB call failed --
+      setKeys((prev) => prev.map((k) =>
+        k.id === keyId ? { ...k, status: "active", revoked_at: null } : k
+      ));
+      console.error("[API Keys] Revoke failed:", err.message);
+    }
   }, [orgId, user, addAudit]);
 
   const activeCount = keys.filter((k) => k.status === "active").length;
@@ -224,7 +235,7 @@ function ApiKeysContent() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50/50">
-                  {["Name", "Key Prefix", "Created", "Last Used", "Status", ""].map((h) => (
+                  {["Name", "Key Prefix", "Created", "Last Used", "Status", "Age", ""].map((h) => (
                     <th
                       key={h || "actions"}
                       className="text-left text-[11px] font-bold text-gray-400 uppercase tracking-wide px-3.5 py-2.5"
@@ -262,6 +273,16 @@ function ApiKeysContent() {
                       <span className={`pill ${k.status === "active" ? "pill-green" : "pill-red"}`}>
                         {k.status}
                       </span>
+                    </td>
+
+                    {/* Key age warning */}
+                    <td className="px-3.5 py-3">
+                      {k.status === "active" && k.created_at && (() => {
+                        const ageDays = Math.floor((Date.now() - new Date(k.created_at).getTime()) / 86400000);
+                        if (ageDays > 90) return <span className="pill pill-red text-[9px]">⚠️ {ageDays}d — rotate</span>;
+                        if (ageDays > 60) return <span className="pill pill-amber text-[9px]">{ageDays}d old</span>;
+                        return <span className="text-[10px] text-gray-400">{ageDays}d</span>;
+                      })()}
                     </td>
 
                     {/* Revoke button */}

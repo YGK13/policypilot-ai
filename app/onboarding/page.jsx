@@ -91,7 +91,7 @@ function OnboardingContent() {
     if (e.target) e.target.value = "";
   }, [orgId, addToast]);
 
-  // -- Complete onboarding: save settings locally + sync to Neon --
+  // -- Complete onboarding: save settings locally + await Neon sync before redirect --
   const finishOnboarding = useCallback(async () => {
     const newSettings = {
       companyName: company.name,
@@ -106,16 +106,24 @@ function OnboardingContent() {
       industry: company.industry,
       employeeCount: company.employeeCount,
     };
-    // -- Save to context (localStorage) --
+    // -- Save to context (localStorage) immediately for instant UX --
     setSettings((prev) => ({ ...prev, ...newSettings }));
-    // -- Fire-and-forget sync to Neon --
-    fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", settings: newSettings }),
-    }).catch(() => {});
-    addAudit("ONBOARDING_COMPLETE", `${company.name} setup complete. ${selectedJurisdictions.length} jurisdictions, ${uploadedFiles.length} docs uploaded.`, "success");
-    addToast("success", "Setup Complete!", "AI HR Pilot is ready to use");
+
+    // -- Await Neon sync so settings persist across devices --
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", settings: newSettings }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      addAudit("ONBOARDING_COMPLETE", `${company.name} setup complete. ${selectedJurisdictions.length} jurisdictions, ${uploadedFiles.length} docs uploaded.`, "success");
+      addToast("success", "Setup Complete!", "AI HR Pilot is ready to use");
+    } catch {
+      // -- Settings saved to localStorage; warn that DB sync failed --
+      addToast("warning", "Setup Saved Locally", "Settings saved to this device. Database sync failed — re-save from Settings page.");
+      addAudit("ONBOARDING_COMPLETE", `${company.name} setup complete (DB sync failed). ${selectedJurisdictions.length} jurisdictions.`, "warning");
+    }
     router.push("/");
   }, [company, selectedJurisdictions, uploadedFiles, aiConfig, orgId, setSettings, addAudit, addToast, router]);
 
