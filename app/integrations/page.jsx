@@ -45,9 +45,9 @@ function IntegrationsContent() {
             };
           }
         });
-        // Merge DB state into existing context (don't overwrite anything the session already set)
+        // DB state is authoritative on mount — overrides in-memory defaults
         if (Object.keys(merged).length) {
-          setIntegrations((prev) => ({ ...merged, ...prev }));
+          setIntegrations((prev) => ({ ...prev, ...merged }));
         }
       })
       .catch(() => {});

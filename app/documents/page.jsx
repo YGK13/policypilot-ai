@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useApp } from "../AppShell";
+import { useToast } from "@/components/layout/ToastProvider";
 import { DEMO_DOCS } from "@/lib/data/demo-data";
 import SearchBar from "@/components/ui/SearchBar";
 
@@ -46,6 +47,7 @@ function normalizeDbDoc(row) {
 
 function DocumentsContent() {
   const { addAudit, mode, orgId, currentUser } = useApp();
+  const { addToast } = useToast();
   const [search, setSearch] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
@@ -173,26 +175,40 @@ function DocumentsContent() {
   );
 
   // -- Delete document (admin only): remove from UI + Neon + Blob --
+  // Uses optimistic removal with error recovery: if DELETE fails, doc is
+  // restored to state and a toast is shown.
   const handleDelete = useCallback(
     async (doc) => {
       // -- Optimistic UI removal --
       setDocs((prev) => prev.filter((d) => d.id !== doc.id));
-      addAudit("DOCUMENT_DELETE", `Deleted document: ${doc.name}`, "warning");
 
       // -- If it has a DB record, delete from Neon + Blob --
       if (doc.dbId) {
-        fetch("/api/documents", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orgId: orgId || "default",
-            docId: doc.dbId,
-            blobUrl: doc.blobUrl || null,
-          }),
-        }).catch((err) => console.warn("[Documents] DELETE failed:", err.message));
+        try {
+          const res = await fetch("/api/documents", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orgId: orgId || "default",
+              docId: doc.dbId,
+              blobUrl: doc.blobUrl || null,
+            }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          // -- Audit only after confirmed delete --
+          addAudit("DOCUMENT_DELETE", `Deleted document: ${doc.name}`, "warning");
+        } catch (err) {
+          // -- Restore doc to state on failure --
+          setDocs((prev) => [doc, ...prev]);
+          addToast("error", "Delete Failed", `Could not delete "${doc.name}". Please try again.`);
+          console.warn("[Documents] DELETE failed:", err.message);
+        }
+      } else {
+        // -- Local-only doc (no DB record): just confirm the removal --
+        addAudit("DOCUMENT_DELETE", `Deleted local document: ${doc.name}`, "warning");
       }
     },
-    [addAudit, orgId]
+    [addAudit, addToast, orgId]
   );
 
   return (

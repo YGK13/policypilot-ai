@@ -171,11 +171,27 @@ function TicketModal({ ticket, onClose, onUpdate, isAdmin }) {
 function TicketsContent() {
   const { tickets, setTickets, mode, employee, currentUser, orgId, addAudit } = useApp();
   const { addToast } = useToast();
-  const [filter, setFilter] = useState("all");
+  // -- Persist filter + search to localStorage so they survive page reload --
+  const [filter, setFilter] = useState(() =>
+    (typeof window !== "undefined" && localStorage.getItem("aihrpilot_ticket_filter")) || "all"
+  );
+  const [search, setSearch] = useState(() =>
+    (typeof window !== "undefined" && localStorage.getItem("aihrpilot_ticket_search")) || ""
+  );
   const [viewMode, setViewMode] = useState("table");
   const [loading, setLoading] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+
+  // -- Persist filter + search changes --
+  const handleSetFilter = useCallback((f) => {
+    setFilter(f);
+    if (typeof window !== "undefined") localStorage.setItem("aihrpilot_ticket_filter", f);
+  }, []);
+  const handleSetSearch = useCallback((s) => {
+    setSearch(s);
+    if (typeof window !== "undefined") localStorage.setItem("aihrpilot_ticket_search", s);
+  }, []);
 
   const isAdmin = mode !== "employee";
 
@@ -262,7 +278,18 @@ function TicketsContent() {
     ? tickets.filter((t) => t.employee === `${employee.firstName} ${employee.lastName}`)
     : tickets;
 
-  const filtered = filter === "all" ? baseTickets : baseTickets.filter((t) => t.status === filter);
+  // -- Search: match against query text, category, employee name, ticket ID --
+  const searchLower = search.trim().toLowerCase();
+  const afterSearch = searchLower
+    ? baseTickets.filter((t) =>
+        (t.query || "").toLowerCase().includes(searchLower) ||
+        (t.category || "").toLowerCase().includes(searchLower) ||
+        (t.employee || "").toLowerCase().includes(searchLower) ||
+        (t.id || "").toLowerCase().includes(searchLower)
+      )
+    : baseTickets;
+
+  const filtered = filter === "all" ? afterSearch : afterSearch.filter((t) => t.status === filter);
 
   // ============================================================================
   // KANBAN COLUMNS — Actual HR ticket workflow states
@@ -316,7 +343,7 @@ function TicketsContent() {
       <div className="p-6 max-w-[1200px] mx-auto">
         {/* ============ View Toggle + Filter Bar ============ */}
         <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex gap-0.5 bg-gray-100 rounded-md p-0.5">
               <button
                 onClick={() => setViewMode("table")}
@@ -331,18 +358,37 @@ function TicketsContent() {
                 📌 Kanban
               </button>
             </div>
+            {/* -- Search input -- */}
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">🔍</span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSetSearch(e.target.value)}
+                placeholder="Search tickets…"
+                className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 w-48 transition-colors"
+              />
+              {search && (
+                <button
+                  onClick={() => handleSetSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs leading-none"
+                >×</button>
+              )}
+            </div>
             {loading && <span className="text-[10px] text-gray-400 italic">Loading from database…</span>}
             {!loading && dbLoaded && tickets.length > 0 && (
-              <span className="text-[10px] text-gray-400">{baseTickets.length} ticket{baseTickets.length !== 1 ? "s" : ""}</span>
+              <span className="text-[10px] text-gray-400">
+                {filtered.length !== baseTickets.length ? `${filtered.length} of ` : ""}{baseTickets.length} ticket{baseTickets.length !== 1 ? "s" : ""}
+              </span>
             )}
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {["all", "resolved", "pending", "escalated"].map((f) => {
-              const count = f === "all" ? baseTickets.length : baseTickets.filter((t) => t.status === f).length;
+              const count = f === "all" ? afterSearch.length : afterSearch.filter((t) => t.status === f).length;
               return (
                 <button
                   key={f}
-                  onClick={() => setFilter(f)}
+                  onClick={() => handleSetFilter(f)}
                   className={`px-3 py-1.5 border rounded-full text-[11px] font-medium transition-all ${
                     filter === f
                       ? "bg-brand-50 border-brand-400 text-brand-700 font-semibold"

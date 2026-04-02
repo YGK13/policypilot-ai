@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../AppShell";
 
 // ============================================================================
@@ -93,21 +93,16 @@ function AuditContent() {
   }, [offset, loadPage]);
 
   // -- Merge: DB entries (authoritative) + in-memory session entries
-  //    Deduplicate by ID prefix: DB rows use numeric IDs, session entries use AUD-<timestamp>
-  //    In-memory entries only shown if their ID is NOT already in the DB set --
-  const mergedLog = (() => {
+  //    Deduplicate by ID: DB rows use numeric IDs, session entries use AUD-<timestamp>
+  //    Memoized so the sort only reruns when dbEntries or auditLog actually change --
+  const mergedLog = useMemo(() => {
     const dbIds = new Set(dbEntries.map((e) => e.id?.toString()));
-    // Session-only entries: those with AUD- prefix that aren't in the DB
     const sessionOnly = auditLog.filter((e) => !dbIds.has(e.id?.toString()));
-    // Combine: DB first (newest), then session-only entries
     const combined = [...dbEntries, ...sessionOnly];
-    // Sort by timestamp descending
-    return combined.sort((a, b) => {
-      const ta = new Date(a.timestamp || 0).getTime();
-      const tb = new Date(b.timestamp || 0).getTime();
-      return tb - ta;
-    });
-  })();
+    return combined.sort((a, b) =>
+      new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    );
+  }, [dbEntries, auditLog]);
 
   // -- Apply level filter --
   const displayed = levelFilter === "all"
