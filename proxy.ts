@@ -11,8 +11,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/chat",          // AI chat API (can be called by external integrations)
-  "/api/webhooks(.*)",  // Webhook endpoints
+  "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

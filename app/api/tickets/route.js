@@ -81,10 +81,9 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  // hr_staff can update ticket status/resolution; employee can update satisfaction only
-  const guard = await requireRole("employee");
-  if (guard.error) return guard.error;
-
+  // Parse body first to determine action, then enforce the correct role:
+  // - "update_status" (set resolved/escalated/pending + resolution note) → hr_staff only
+  // - "rate" (employee satisfaction rating on their own ticket)         → any employee
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }
@@ -98,6 +97,10 @@ export async function PATCH(request) {
     }
 
     if (action === "update_status") {
+      // -- Status changes are privileged: hr_staff or above --
+      const guard = await requireRole("hr_staff");
+      if (guard.error) return guard.error;
+
       if (!status) {
         return NextResponse.json({ error: "Missing status field" }, { status: 400 });
       }
@@ -106,6 +109,10 @@ export async function PATCH(request) {
     }
 
     if (action === "rate") {
+      // -- Rating is self-service: any authenticated user --
+      const guard = await requireRole("employee");
+      if (guard.error) return guard.error;
+
       if (satisfaction == null) {
         return NextResponse.json({ error: "Missing satisfaction field" }, { status: 400 });
       }
