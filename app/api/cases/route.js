@@ -11,12 +11,16 @@
 
 import { NextResponse } from "next/server";
 import { isDbAvailable, getCases, createCase, updateCase } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // GET /api/cases?orgId=...
-// Returns all cases for the org, sorted by created_at DESC
+// Requires: hr_staff or above (cases are confidential)
 // ============================================================================
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ cases: [], demo: true });
   }
@@ -45,6 +49,9 @@ export async function GET(request) {
 // Creates a new sensitive case record in Neon
 // ============================================================================
 export async function POST(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }
@@ -68,8 +75,12 @@ export async function POST(request) {
 // PATCH /api/cases
 // Body: { orgId, caseId, action: "update_status" | "add_note", status?, notes? }
 // Updates case status or replaces the full notes array
+// Requires: hr_staff or above
 // ============================================================================
 export async function PATCH(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }

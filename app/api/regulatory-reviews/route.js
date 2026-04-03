@@ -11,12 +11,16 @@
 
 import { NextResponse } from "next/server";
 import { isDbAvailable, getDb, createAuditEntry } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // GET /api/regulatory-reviews?orgId=xxx
 // Returns { reviews: [{ update_id, status, reviewer_name, notes, created_at }] }
 // ============================================================================
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ reviews: [], demo: true });
   }
@@ -44,6 +48,9 @@ export async function GET(request) {
 // Body: { orgId, updateId, status, reviewerName, notes?, affectedPolicies? }
 // ============================================================================
 export async function POST(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   try {
     const body = await request.json();
     const { orgId, updateId, status, reviewerName, notes, affectedPolicies } = body;

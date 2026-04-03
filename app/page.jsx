@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useApp } from "./AppShell";
 import StatGrid from "@/components/dashboard/StatGrid";
 import BarChart from "@/components/dashboard/BarChart";
@@ -15,19 +15,50 @@ import POLICIES from "@/lib/data/policies";
 // ============================================================================
 
 function DashboardContent() {
-  const { tickets, employee, mode, settings, currentUser } = useApp();
+  const { tickets, setTickets, employee, mode, settings, currentUser, orgId } = useApp();
 
-  // -- Policy Freshness Score: 0-100 based on how many policies need review --
+  // -- Load recent tickets from Neon on mount (dashboard uses context as fallback) --
+  useEffect(() => {
+    if (!orgId) return;
+    const params = new URLSearchParams({ orgId, limit: "50" });
+    if (mode === "employee" && currentUser?.id) params.set("userId", currentUser.id);
+    fetch(`/api/tickets?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.demo && Array.isArray(data.tickets) && data.tickets.length > 0) {
+          const normalized = data.tickets.map((t) => ({
+            id: t.id, query: t.query, category: t.category,
+            riskScore: t.risk_score ?? t.riskScore ?? 0,
+            routing: t.routing, status: t.status, priority: t.priority,
+            employee: t.employee_name || t.employee || "",
+            created: t.created_at ? new Date(t.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : (t.created || ""),
+          }));
+          setTickets((prev) => {
+            const dbIds = new Set(normalized.map((t) => t.id));
+            const localOnly = prev.filter((t) => !dbIds.has(t.id));
+            return [...normalized, ...localOnly];
+          });
+        }
+      })
+      .catch(() => {});
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -- Policy Freshness Score: accounts for already-reviewed updates --
+  // Uses settings.reviewedUpdates (persisted to Neon via policies page) so the
+  // score reflects actual admin review activity, not just the raw policy count.
   const policyFreshness = useMemo(() => {
-    const affectedPolicies = new Set();
+    const reviewedUpdates = settings.reviewedUpdates || {};
+    const stalePolicies = new Set();
     REGULATORY_UPDATES.forEach((u) => {
-      (u.affectedPolicies || []).forEach((pId) => affectedPolicies.add(pId));
+      // Skip updates that have been reviewed or implemented
+      if (reviewedUpdates[u.id]) return;
+      (u.affectedPolicies || []).forEach((pId) => stalePolicies.add(pId));
     });
-    const staleCount = affectedPolicies.size;
+    const staleCount = stalePolicies.size;
     const totalPolicies = POLICIES.length;
     const score = Math.round(((totalPolicies - staleCount) / totalPolicies) * 100);
     return { score, staleCount, totalPolicies };
-  }, []);
+  }, [settings.reviewedUpdates]);
 
   // -- Filter tickets based on mode --
   const visibleTickets =

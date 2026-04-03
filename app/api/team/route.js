@@ -7,11 +7,16 @@
 
 import { NextResponse } from "next/server";
 import { isDbAvailable, getOrgUsers, inviteUser, updateUserRole, setUserActive } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // GET /api/team?orgId=...
+// Requires: hr_staff or above
 // ============================================================================
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ users: [], demo: true });
   }
@@ -30,9 +35,13 @@ export async function GET(request) {
 
 // ============================================================================
 // POST /api/team
+// Requires: hr_admin only
 // Body: { orgId, user: { name, email, role, department, title, state } }
 // ============================================================================
 export async function POST(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }
@@ -54,9 +63,13 @@ export async function POST(request) {
 
 // ============================================================================
 // PATCH /api/team
+// Requires: hr_admin only (role changes are privileged)
 // Body: { orgId, userId, action: "update_role" | "set_active", role?, isActive? }
 // ============================================================================
 export async function PATCH(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }
