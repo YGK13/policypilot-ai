@@ -10,8 +10,12 @@ import {
   createTicket, getTickets, updateTicketStatus,
   updateTicketSatisfaction, isDbAvailable, getOrgSettings
 } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 export async function GET(request) {
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   // -- In demo mode, return empty (frontend uses localStorage) --
   if (!isDbAvailable()) {
     return NextResponse.json({ tickets: [], demo: true });
@@ -34,6 +38,9 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true, message: "Demo mode — ticket stored in localStorage" });
   }
@@ -74,6 +81,10 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
+  // hr_staff can update ticket status/resolution; employee can update satisfaction only
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }

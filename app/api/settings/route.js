@@ -10,8 +10,12 @@
 
 import { NextResponse } from "next/server";
 import { isDbAvailable, getDb } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ settings: null, demo: true });
   }
@@ -35,6 +39,9 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }

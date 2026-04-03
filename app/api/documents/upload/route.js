@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { createDocument, isDbAvailable } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // -- Derive document type from file extension --
 function inferType(filename) {
@@ -19,6 +20,9 @@ function inferType(filename) {
 }
 
 export async function POST(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   const formData = await request.formData();
   const file = formData.get("file");
   const orgId = formData.get("orgId") || "default";

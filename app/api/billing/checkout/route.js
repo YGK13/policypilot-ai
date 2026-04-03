@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // POST /api/billing/checkout — Create a Stripe Checkout Session
@@ -12,6 +13,9 @@ import Stripe from "stripe";
 const HAS_STRIPE = !!process.env.STRIPE_SECRET_KEY;
 
 export async function POST(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   try {
     const { planId, planName, priceInCents, orgId } = await request.json();
 

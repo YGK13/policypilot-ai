@@ -5,8 +5,12 @@
 
 import { NextResponse } from "next/server";
 import { getTicketStats, getTicketsByCategory, getTicketsByState, getTicketsByRouting, getTicketsByRisk, isDbAvailable } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true, stats: null });
   }

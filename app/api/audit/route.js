@@ -6,8 +6,13 @@
 
 import { NextResponse } from "next/server";
 import { createAuditEntry, getAuditLog, isDbAvailable } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 export async function GET(request) {
+  // Audit log read is restricted to hr_staff and above (sensitive compliance data)
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ entries: [], demo: true });
   }
@@ -27,6 +32,10 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  // Any authenticated user can create audit entries (employees log their own actions)
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }

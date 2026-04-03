@@ -5,6 +5,7 @@ import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
 import POLICIES from "@/lib/data/policies";
 import { saveChatMessage, getChatHistory, isDbAvailable } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // POST /api/chat — Hybrid LLM + local policy engine for HR queries
@@ -89,6 +90,9 @@ ${buildPolicyCatalog()}
 // Load chat history for a user/session from Neon
 // ============================================================================
 export async function GET(request) {
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ messages: [], demo: true });
   }
@@ -111,6 +115,9 @@ export async function GET(request) {
 // POST /api/chat — Hybrid LLM + local policy engine for HR queries
 // ============================================================================
 export async function POST(request) {
+  const guard = await requireRole("employee");
+  if (guard.error) return guard.error;
+
   try {
     const body = await request.json();
     const { query, employee_id, jurisdiction, use_llm, orgId, userId, sessionId } = body;

@@ -11,11 +11,15 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { storeApiKey, getApiKeys, revokeApiKey, isDbAvailable, createAuditEntry } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
 // GET /api/api-keys?orgId=xxx
 // ============================================================================
 export async function GET(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   const url = new URL(request.url);
   const orgId = url.searchParams.get("orgId") || "default";
 
@@ -38,6 +42,9 @@ export async function GET(request) {
 // Returns: { key } — raw key shown ONCE, then never again
 // ============================================================================
 export async function POST(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   try {
     const body = await request.json();
     const { orgId, name, createdBy } = body;
@@ -84,6 +91,9 @@ export async function POST(request) {
 // Body: { orgId, keyId, action: "revoke" }
 // ============================================================================
 export async function PATCH(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   try {
     const body = await request.json();
     const { orgId, keyId, action, revokedBy } = body;

@@ -6,8 +6,12 @@
 
 import { NextResponse } from "next/server";
 import { getDocuments, deleteDocument, isDbAvailable } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 export async function GET(request) {
+  const guard = await requireRole("hr_staff");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ documents: [], demo: true });
   }
@@ -25,6 +29,9 @@ export async function GET(request) {
 }
 
 export async function DELETE(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   if (!isDbAvailable()) {
     return NextResponse.json({ demo: true });
   }

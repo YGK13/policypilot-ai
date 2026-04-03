@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { isDbAvailable, getDb } from "@/lib/db";
+import { requireRole } from "@/lib/auth/rbac";
 
 // -- Map DB plan slugs to display names --
 const PLAN_NAMES = {
@@ -17,6 +18,9 @@ const PLAN_NAMES = {
 };
 
 export async function GET(request) {
+  const guard = await requireRole("hr_admin");
+  if (guard.error) return guard.error;
+
   const url = new URL(request.url);
   const orgId = url.searchParams.get("orgId") || "default";
 
