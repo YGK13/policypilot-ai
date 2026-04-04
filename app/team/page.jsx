@@ -115,7 +115,7 @@ function TeamContent() {
     return matchSearch && matchRole;
   });
 
-  // -- Invite a new member --
+  // -- Invite a new member (optimistic + awaited + rollback on failure) --
   const handleInvite = useCallback(async () => {
     if (!inviteForm.name.trim() || !inviteForm.email.trim()) {
       addToast("error", "Missing Fields", "Name and email are required");
@@ -123,70 +123,98 @@ function TeamContent() {
     }
     setInviting(true);
     const tempId = `temp-${Date.now()}`;
+    const inviteSnapshot = { ...inviteForm };
     const newMember = {
       id: tempId,
-      ...inviteForm,
+      ...inviteSnapshot,
       isActive: true,
       joined: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      initials: inviteForm.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
+      initials: inviteSnapshot.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
       fromDb: false,
     };
 
     // -- Optimistic add --
     setMembers((prev) => [newMember, ...prev]);
-    addAudit("TEAM_INVITE", `Invited ${inviteForm.name} (${inviteForm.role}) — ${inviteForm.email}`, "info");
-    addToast("success", "Invitation Sent", `${inviteForm.name} will receive an email invite`);
     setInviteForm({ name: "", email: "", role: "employee", department: "", title: "", state: "" });
     setShowInvite(false);
-    setInviting(false);
 
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/team", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", user: inviteForm }),
-    }).then(async (res) => {
+    try {
+      const res = await fetch("/api/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", user: inviteSnapshot }),
+      });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Invite failed");
+
+      // -- Replace temp ID with real DB id --
       if (data.user?.id) {
-        // -- Replace temp ID with real DB id --
-        setMembers((prev) =>
-          prev.map((m) => m.id === tempId ? normalizeDbUser(data.user) : m)
-        );
+        setMembers((prev) => prev.map((m) => m.id === tempId ? normalizeDbUser(data.user) : m));
       }
-    }).catch(() => {});
+      addAudit("TEAM_INVITE", `Invited ${inviteSnapshot.name} (${inviteSnapshot.role}) — ${inviteSnapshot.email}`, "info");
+      addToast("success", "Invitation Sent", `${inviteSnapshot.name} will receive an email invite`);
+    } catch (err) {
+      // -- Rollback: remove the optimistic member --
+      setMembers((prev) => prev.filter((m) => m.id !== tempId));
+      addToast("error", "Invite Failed", err.message || "Could not save to database");
+    } finally {
+      setInviting(false);
+    }
   }, [inviteForm, orgId, addAudit, addToast]);
 
-  // -- Change a member's role --
-  const handleRoleChange = useCallback((member, newRole) => {
+  // -- Change a member's role (optimistic + awaited + rollback on failure) --
+  const handleRoleChange = useCallback(async (member, newRole) => {
     if (newRole === member.role) { setEditingRole(null); return; }
+    const prevRole = member.role;
     // -- Optimistic update --
     setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, role: newRole } : m));
     setEditingRole(null);
-    addAudit("ROLE_CHANGE", `${member.name}: ${member.role} → ${newRole}`, "warning");
-    addToast("info", "Role Updated", `${member.name} is now ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`);
-    // -- Fire-and-forget --
-    fetch("/api/team", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "update_role", role: newRole }),
-    }).catch(() => {});
+
+    try {
+      const res = await fetch("/api/team", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "update_role", role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Role update failed");
+
+      addAudit("ROLE_CHANGE", `${member.name}: ${prevRole} → ${newRole}`, "warning");
+      addToast("info", "Role Updated", `${member.name} is now ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`);
+    } catch (err) {
+      // -- Rollback: restore previous role --
+      setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, role: prevRole } : m));
+      addToast("error", "Role Update Failed", err.message || "Could not save to database");
+    }
   }, [orgId, addAudit, addToast]);
 
-  // -- Deactivate / reactivate a member --
-  const handleToggleActive = useCallback((member) => {
+  // -- Deactivate / reactivate a member (optimistic + awaited + rollback on failure) --
+  const handleToggleActive = useCallback(async (member) => {
     const newActive = !member.isActive;
+    const prevActive = member.isActive;
+    // -- Optimistic update --
     setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, isActive: newActive } : m));
-    addAudit(
-      newActive ? "USER_REACTIVATED" : "USER_DEACTIVATED",
-      `${member.name} (${member.role})`,
-      newActive ? "success" : "warning"
-    );
-    addToast(newActive ? "success" : "warning", newActive ? "User Reactivated" : "User Deactivated", member.name);
-    fetch("/api/team", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "set_active", isActive: newActive }),
-    }).catch(() => {});
+
+    try {
+      const res = await fetch("/api/team", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "set_active", isActive: newActive }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Status update failed");
+
+      addAudit(
+        newActive ? "USER_REACTIVATED" : "USER_DEACTIVATED",
+        `${member.name} (${member.role})`,
+        newActive ? "success" : "warning"
+      );
+      addToast(newActive ? "success" : "warning", newActive ? "User Reactivated" : "User Deactivated", member.name);
+    } catch (err) {
+      // -- Rollback: restore previous active state --
+      setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, isActive: prevActive } : m));
+      addToast("error", "Update Failed", err.message || "Could not save to database");
+    }
   }, [orgId, addAudit, addToast]);
 
   // -- Admin-only guard --
