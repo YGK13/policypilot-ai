@@ -153,6 +153,7 @@ function ChatContent() {
       status: resp.routing === "legal" ? "escalated" : resp.routing === "hr" ? "pending" : "resolved",
       priority: resp.riskScore >= 76 ? "critical" : resp.riskScore >= 51 ? "high" : resp.riskScore >= 26 ? "medium" : "low",
       employee: `${employee.firstName} ${employee.lastName}`,
+      userId: currentUser?.id || null,   // -- DB user ID for JOIN to get employee_name --
       employeeId: employee.id,
       department: employee.department,
       state: employee.state,

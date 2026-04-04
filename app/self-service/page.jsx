@@ -24,7 +24,7 @@ const ACTIONS = [
 ];
 
 function SelfServiceContent() {
-  const { employee, addAudit, addNotification, setTickets, mode, orgId } = useApp();
+  const { employee, addAudit, addNotification, setTickets, mode, orgId, currentUser } = useApp();
   const { addToast } = useToast();
   const [activeAction, setActiveAction] = useState(null);
 
@@ -55,6 +55,7 @@ function SelfServiceContent() {
       status: "pending",
       priority: "low",
       employee: `${employee.firstName} ${employee.lastName}`,
+      userId: currentUser?.id || null,
       employeeId: employee.id,
       department: employee.department,
       state: employee.state,
@@ -134,6 +135,7 @@ function SelfServiceContent() {
       status: "pending",
       priority: "medium",
       employee: `${employee.firstName} ${employee.lastName}`,
+      userId: currentUser?.id || null,
       employeeId: employee.id,
       department: employee.department,
       state: employee.state,
