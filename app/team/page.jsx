@@ -11,7 +11,7 @@ import { ROLES } from "../AppShell";
 // Loads live users from Neon via /api/team on mount.
 // Falls back to DEMO_USERS when DB is not available.
 // Admins can: invite new members, change roles, deactivate/reactivate users.
-// Role changes are optimistic + fire-and-forget synced to Neon.
+// Role changes are optimistic with rollback — awaited and synced to Neon.
 // ============================================================================
 
 // -- Role badge colors mapped to pill classes --

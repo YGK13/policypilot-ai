@@ -64,7 +64,7 @@ function PoliciesContent() {
       .catch(() => {});
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -- Fire-and-forget POST to Neon for a single review action --
+  // -- POST review action to Neon — silent on success, toast on failure --
   const persistOneReview = useCallback((updateId, reviewData, affectedPolicies) => {
     fetch("/api/regulatory-reviews", {
       method: "POST",
@@ -77,8 +77,17 @@ function PoliciesContent() {
         notes: reviewData.notes || null,
         affectedPolicies: affectedPolicies || reviewData.affectedPolicies || [],
       }),
-    }).catch(() => {});
-  }, [orgId]);
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          addToast("warning", "Sync Failed", data.error || "Review saved locally but failed to sync to database");
+        }
+      })
+      .catch(() => {
+        addToast("warning", "Sync Failed", "Review saved locally but could not reach the database");
+      });
+  }, [orgId, addToast]);
 
   // -- Persist reviewed updates and auto-implement setting to settings --
   const persistReviewed = useCallback((updated) => {
