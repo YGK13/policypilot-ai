@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../AppShell";
+import { useToast } from "@/components/layout/ToastProvider";
 import CONNECTORS from "@/lib/data/connectors";
 import Modal from "@/components/ui/Modal";
 
@@ -22,6 +23,7 @@ const CATEGORIES = [
 
 function IntegrationsContent() {
   const { integrations, setIntegrations, addAudit, orgId, currentUser } = useApp();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState("hris");
   const [configModal, setConfigModal] = useState(null); // connector object or null
   const [fieldValues, setFieldValues] = useState({});
@@ -68,53 +70,87 @@ function IntegrationsContent() {
     setConfigModal(connector);
   }, []);
 
-  // -- Connect a connector (optimistic + fire-and-forget DB persist) --
-  const handleConnect = useCallback(() => {
+  // -- Connect a connector: optimistic + awaited + rollback on failure --
+  const handleConnect = useCallback(async () => {
     if (!configModal) return;
     const now = new Date().toISOString();
     const selectedSyncFields = Object.keys(syncToggles).filter((k) => syncToggles[k]);
+    const connectorId = configModal.id;
+    const connectorName = configModal.name;
+
+    // -- Optimistic update --
     setIntegrations((prev) => ({
       ...prev,
-      [configModal.id]: { connected: true, connectedAt: now, config: fieldValues },
+      [connectorId]: { connected: true, connectedAt: now, config: fieldValues },
     }));
-    addAudit("INTEGRATION_CONNECTED", `Connected ${configModal.name}`, "info");
-    // -- Persist to Neon --
-    fetch("/api/integrations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: orgId || "default",
-        connectorId: configModal.id,
-        status: "connected",
-        config: fieldValues,
-        syncFields: selectedSyncFields,
-        actor: currentUser?.name || "Admin",
-      }),
-    }).catch(() => {});
     setConfigModal(null);
-  }, [configModal, syncToggles, fieldValues, orgId, currentUser, setIntegrations, addAudit]);
 
-  // -- Disconnect a connector (optimistic + fire-and-forget DB persist) --
-  const handleDisconnect = useCallback(
-    (connectorId, connectorName) => {
-      setIntegrations((prev) => {
-        const next = { ...prev };
-        delete next[connectorId];
-        return next;
-      });
-      addAudit("INTEGRATION_DISCONNECTED", `Disconnected ${connectorName}`, "warning");
-      fetch("/api/integrations", {
+    try {
+      const res = await fetch("/api/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: orgId || "default",
           connectorId,
-          status: "disconnected",
+          status: "connected",
+          config: fieldValues,
+          syncFields: selectedSyncFields,
           actor: currentUser?.name || "Admin",
         }),
-      }).catch(() => {});
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Connection failed");
+
+      addAudit("INTEGRATION_CONNECTED", `Connected ${connectorName}`, "info");
+      addToast("success", "Integration Connected", `${connectorName} is now active`);
+    } catch (err) {
+      // -- Rollback: remove the optimistic connection --
+      setIntegrations((prev) => {
+        const next = { ...prev };
+        delete next[connectorId];
+        return next;
+      });
+      addToast("error", "Connection Failed", err.message || "Could not save to database");
+    }
+  }, [configModal, syncToggles, fieldValues, orgId, currentUser, setIntegrations, addAudit, addToast]);
+
+  // -- Disconnect a connector: optimistic + awaited + rollback on failure --
+  const handleDisconnect = useCallback(
+    async (connectorId, connectorName) => {
+      const prevState = integrations[connectorId]; // snapshot before removal
+
+      // -- Optimistic removal --
+      setIntegrations((prev) => {
+        const next = { ...prev };
+        delete next[connectorId];
+        return next;
+      });
+
+      try {
+        const res = await fetch("/api/integrations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orgId: orgId || "default",
+            connectorId,
+            status: "disconnected",
+            actor: currentUser?.name || "Admin",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Disconnect failed");
+
+        addAudit("INTEGRATION_DISCONNECTED", `Disconnected ${connectorName}`, "warning");
+        addToast("info", "Integration Disconnected", `${connectorName} has been removed`);
+      } catch (err) {
+        // -- Rollback: restore previous connection state --
+        if (prevState) {
+          setIntegrations((prev) => ({ ...prev, [connectorId]: prevState }));
+        }
+        addToast("error", "Disconnect Failed", err.message || "Could not save to database");
+      }
     },
-    [orgId, currentUser, setIntegrations, addAudit]
+    [integrations, orgId, currentUser, setIntegrations, addAudit, addToast]
   );
 
   return (

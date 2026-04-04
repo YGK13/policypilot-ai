@@ -247,31 +247,41 @@ function TicketsContent() {
     loadFromDb();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -- Update ticket status (locally + Neon) --
+  // -- Update ticket status: optimistic + awaited Neon PATCH + rollback on failure --
   const handleUpdateTicket = useCallback(async (ticketId, newStatus, resolution) => {
+    // Snapshot previous state for rollback
+    const prevTickets = tickets;
+
     // -- Optimistic local update --
     setTickets((prev) =>
       prev.map((t) =>
         t.id === ticketId ? { ...t, status: newStatus, resolution: resolution || t.resolution } : t
       )
     );
-    addAudit("TICKET_UPDATE", `${ticketId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
-    addToast("success", "Ticket Updated", `${ticketId} marked as ${newStatus}`);
 
-    // -- Persist to Neon (fire-and-forget, non-blocking) --
-    const resolvedOrgId = orgId || "default";
-    fetch("/api/tickets", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: resolvedOrgId,
-        ticketId,
-        action: "update_status",
-        status: newStatus,
-        resolution,
-      }),
-    }).catch((err) => console.warn("[Tickets] PATCH failed:", err.message));
-  }, [orgId, setTickets, addAudit, addToast]);
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgId || "default",
+          ticketId,
+          action: "update_status",
+          status: newStatus,
+          resolution,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Update failed");
+
+      addAudit("TICKET_UPDATE", `${ticketId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
+      addToast("success", "Ticket Updated", `${ticketId} marked as ${newStatus}`);
+    } catch (err) {
+      // -- Rollback: restore previous ticket list --
+      setTickets(prevTickets);
+      addToast("error", "Update Failed", err.message || "Could not save to database");
+    }
+  }, [tickets, orgId, setTickets, addAudit, addToast]);
 
   // -- Mode-aware: employee sees only their own tickets --
   const baseTickets = mode === "employee"
