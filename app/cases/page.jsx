@@ -114,8 +114,8 @@ function CasesContent() {
     accusedParty: "",
   });
 
-  // -- Create a new case: optimistic UI + fire-and-forget to Neon --
-  const createCase = useCallback(() => {
+  // -- Create a new case: optimistic UI + awaited Neon persist + rollback on failure --
+  const createCase = useCallback(async () => {
     if (!newCase.subject.trim()) {
       addToast("error", "Missing Field", "Case subject is required");
       return;
@@ -145,22 +145,30 @@ function CasesContent() {
 
     // -- Optimistic local add --
     setCases((prev) => [caseObj, ...prev]);
-    addAudit("CASE_OPENED", `${caseObj.id}: ${caseObj.typeLabel} — "${caseObj.subject}"`, "critical");
-    addNotification(`New Case: ${caseObj.typeLabel}`, `${caseObj.createdBy} opened ${caseObj.id}`, "critical");
-    addToast("success", "Case Created", `${caseObj.id} assigned to ${caseObj.assignee}`);
     setNewCase({ type: "harassment", confidentiality: "standard", subject: "", description: "", reportedBy: "", accusedParty: "" });
     setShowNewCase(false);
 
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/cases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", caseObj }),
-    }).catch((err) => console.warn("[Cases] POST failed:", err.message));
+    try {
+      const res = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", caseObj }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save case");
+
+      addAudit("CASE_OPENED", `${caseObj.id}: ${caseObj.typeLabel} — "${caseObj.subject}"`, "critical");
+      addNotification(`New Case: ${caseObj.typeLabel}`, `${caseObj.createdBy} opened ${caseObj.id}`, "critical");
+      addToast("success", "Case Created", `${caseObj.id} assigned to ${caseObj.assignee}`);
+    } catch (err) {
+      // -- Rollback: remove the optimistic case --
+      setCases((prev) => prev.filter((c) => c.id !== caseObj.id));
+      addToast("error", "Case Creation Failed", err.message || "Could not save to database");
+    }
   }, [newCase, employee, orgId, addAudit, addNotification, addToast]);
 
-  // -- Add note to a case: optimistic + PATCH notes array to Neon --
-  const addCaseNote = useCallback(() => {
+  // -- Add note to a case: optimistic + awaited Neon PATCH + rollback on failure --
+  const addCaseNote = useCallback(async () => {
     if (!newNote.trim() || !selectedCase) return;
     const noteObj = {
       id:        `NOTE-${Date.now()}`,
@@ -169,24 +177,40 @@ function CasesContent() {
       timestamp: new Date().toISOString(),
       type:      "note",
     };
-    const updatedNotes = [...selectedCase.notes, noteObj];
+    const prevNotes = selectedCase.notes;
+    const updatedNotes = [...prevNotes, noteObj];
 
     // -- Optimistic local update --
     setCases((prev) => prev.map((c) => c.id === selectedCase.id ? { ...c, notes: updatedNotes } : c));
     setSelectedCase((prev) => ({ ...prev, notes: updatedNotes }));
-    addAudit("CASE_NOTE", `Note added to ${selectedCase.id}`, "info");
     setNewNote("");
 
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/cases", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", caseId: selectedCase.id, action: "add_note", notes: updatedNotes }),
-    }).catch((err) => console.warn("[Cases] PATCH notes failed:", err.message));
-  }, [newNote, selectedCase, employee, orgId, addAudit]);
+    try {
+      const res = await fetch("/api/cases", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", caseId: selectedCase.id, action: "add_note", notes: updatedNotes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save note");
 
-  // -- Update case status: optimistic + PATCH status to Neon --
-  const updateStatus = useCallback((caseId, newStatus) => {
+      addAudit("CASE_NOTE", `Note added to ${selectedCase.id}`, "info");
+    } catch (err) {
+      // -- Rollback: restore previous notes --
+      setCases((prev) => prev.map((c) => c.id === selectedCase.id ? { ...c, notes: prevNotes } : c));
+      setSelectedCase((prev) => ({ ...prev, notes: prevNotes }));
+      setNewNote(noteObj.text); // restore the typed note
+      addToast("error", "Note Failed", err.message || "Could not save to database");
+    }
+  }, [newNote, selectedCase, employee, orgId, addAudit, addToast]);
+
+  // -- Update case status: optimistic + awaited Neon PATCH + rollback on failure --
+  const updateStatus = useCallback(async (caseId, newStatus) => {
+    const targetCase = cases.find((c) => c.id === caseId);
+    if (!targetCase) return;
+    const prevStatus = targetCase.status;
+    const prevNotes = targetCase.notes;
+
     const statusNote = {
       id:        `NOTE-${Date.now()}`,
       text:      `Status changed to: ${newStatus.replace(/_/g, " ")}`,
@@ -194,26 +218,39 @@ function CasesContent() {
       timestamp: new Date().toISOString(),
       type:      "system",
     };
+    const updatedNotes = [...prevNotes, statusNote];
 
     // -- Optimistic local update --
     setCases((prev) =>
-      prev.map((c) =>
-        c.id === caseId ? { ...c, status: newStatus, notes: [...c.notes, statusNote] } : c
-      )
+      prev.map((c) => c.id === caseId ? { ...c, status: newStatus, notes: updatedNotes } : c)
     );
     setSelectedCase((prev) => {
       if (prev?.id !== caseId) return prev;
-      return { ...prev, status: newStatus, notes: [...prev.notes, statusNote] };
+      return { ...prev, status: newStatus, notes: updatedNotes };
     });
-    addAudit("CASE_STATUS", `${caseId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
 
-    // -- Fire-and-forget persist to Neon --
-    fetch("/api/cases", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orgId: orgId || "default", caseId, action: "update_status", status: newStatus }),
-    }).catch((err) => console.warn("[Cases] PATCH status failed:", err.message));
-  }, [employee, orgId, addAudit]);
+    try {
+      const res = await fetch("/api/cases", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: orgId || "default", caseId, action: "update_status", status: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update status");
+
+      addAudit("CASE_STATUS", `${caseId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
+    } catch (err) {
+      // -- Rollback: restore previous status + notes --
+      setCases((prev) =>
+        prev.map((c) => c.id === caseId ? { ...c, status: prevStatus, notes: prevNotes } : c)
+      );
+      setSelectedCase((prev) => {
+        if (prev?.id !== caseId) return prev;
+        return { ...prev, status: prevStatus, notes: prevNotes };
+      });
+      addToast("error", "Status Update Failed", err.message || "Could not save to database");
+    }
+  }, [cases, employee, orgId, addAudit, addToast]);
 
   // -- Admin-only access guard --
   if (mode === "employee") {
