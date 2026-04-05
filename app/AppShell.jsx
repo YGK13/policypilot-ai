@@ -6,6 +6,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import ToastProvider from "@/components/layout/ToastProvider";
 import RouteGuard from "@/components/layout/RouteGuard";
+import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 
 // -- Check if Clerk is configured (publishable key in env) --
@@ -555,7 +556,9 @@ export default function AppShell({ children }) {
               onClearAll={clearNotifications}
             />
             <main className="flex-1 overflow-y-auto bg-gray-50">
-              <RouteGuard>{children}</RouteGuard>
+              <ErrorBoundary>
+                <RouteGuard>{children}</RouteGuard>
+              </ErrorBoundary>
             </main>
           </div>
         </div>

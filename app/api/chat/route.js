@@ -129,6 +129,14 @@ export async function POST(request) {
       );
     }
 
+    // -- Hard cap on query length to prevent prompt injection / LLM cost abuse --
+    if (query.length > 2000) {
+      return NextResponse.json(
+        { error: "Query too long. Maximum 2000 characters." },
+        { status: 413 }
+      );
+    }
+
     // -- Resolve employee context --
     let employee = DEMO_EMPLOYEES.find((e) => e.id === employee_id);
     if (!employee) {
@@ -156,7 +164,7 @@ export async function POST(request) {
         role: "user",
         content: query,
         metadata: { employeeId: employee_id, jurisdiction },
-      }).catch(() => {});
+      }).catch((err) => console.warn("[Chat API] saveChatMessage failed:", err.message));
     }
 
     // -- Always generate local response for triage metadata --
@@ -178,7 +186,7 @@ export async function POST(request) {
             confidence: data.confidence,
             policyId: data.policyId,
           },
-        }).catch(() => {});
+        }).catch((err) => console.warn("[Chat API] saveChatMessage failed:", err.message));
       }
       return NextResponse.json(data);
     };
