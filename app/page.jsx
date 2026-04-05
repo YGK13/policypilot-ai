@@ -40,7 +40,7 @@ function DashboardContent() {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Dashboard] Ticket load failed:", err.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Policy Freshness Score: accounts for already-reviewed updates --

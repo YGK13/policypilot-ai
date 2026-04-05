@@ -52,7 +52,7 @@ function IntegrationsContent() {
           setIntegrations((prev) => ({ ...prev, ...merged }));
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Load] Failed:", err.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Get connectors for the active tab --

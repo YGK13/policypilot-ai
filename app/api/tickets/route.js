@@ -69,8 +69,8 @@ export async function POST(request) {
             companyName: settings.companyName,
             supportEmail: settings.supportEmail,
           }),
-        }).catch(() => {});
-      }).catch(() => {});
+        }).catch((err) => console.warn("[API] Background op failed:", err.message));
+      }).catch((err) => console.warn("[API] Background op failed:", err.message));
     }
 
     return NextResponse.json({ ticket: created }, { status: 201 });

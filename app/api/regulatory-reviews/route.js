@@ -95,7 +95,7 @@ export async function POST(request) {
       detail: `${action.replace(/_/g, " ").toLowerCase()}: update ${updateId}${notes ? ` — ${notes}` : ""}`,
       level: status === "implemented" ? "success" : "info",
       metadata: { updateId, status, affectedPolicies },
-    }).catch(() => {});
+    }).catch((err) => console.warn("[API] Background op failed:", err.message));
 
     return NextResponse.json({ review: result[0] }, { status: 201 });
   } catch (err) {

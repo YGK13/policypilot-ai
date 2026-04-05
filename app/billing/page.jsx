@@ -27,7 +27,7 @@ function BillingContent() {
           setCurrentPlan(data.plan);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Load] Failed:", err.message));
   }, [orgId]);
 
   // -- Check URL params for Stripe success/cancel --

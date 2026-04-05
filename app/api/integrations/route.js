@@ -67,7 +67,7 @@ export async function POST(request) {
       action,
       detail: `${action.replace(/_/g, " ").toLowerCase()}: ${connectorId}`,
       level: "info",
-    }).catch(() => {});
+    }).catch((err) => console.warn("[API] Background op failed:", err.message));
 
     return NextResponse.json({ integration });
   } catch (err) {

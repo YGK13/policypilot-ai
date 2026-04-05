@@ -33,7 +33,7 @@ function SettingsContent() {
           setDbSynced(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Load] Failed:", err.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Update a single key immediately (live preview for sliders/color) --

@@ -105,7 +105,7 @@ function ApiKeysContent() {
       .then((data) => {
         if (data.keys) setKeys(data.keys);
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Load] Failed:", err.message))
       .finally(() => setDbLoaded(true));
   }, [orgId]);
 

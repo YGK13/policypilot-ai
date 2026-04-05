@@ -77,7 +77,7 @@ export async function POST(request) {
       action: "API_KEY_CREATED",
       detail: `Created API key: ${name}`,
       level: "info",
-    }).catch(() => {});
+    }).catch((err) => console.warn("[API] Background op failed:", err.message));
 
     return NextResponse.json({ key: rawKey, record }, { status: 201 });
   } catch (err) {
@@ -114,7 +114,7 @@ export async function PATCH(request) {
       action: "API_KEY_REVOKED",
       detail: `Revoked API key ID: ${keyId}`,
       level: "warning",
-    }).catch(() => {});
+    }).catch((err) => console.warn("[API] Background op failed:", err.message));
 
     return NextResponse.json({ key: updated });
   } catch (err) {

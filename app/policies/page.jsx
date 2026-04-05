@@ -61,7 +61,7 @@ function PoliciesContent() {
           reviewedUpdates: { ...dbMap, ...(prev.reviewedUpdates || {}) },
         }));
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Load] Failed:", err.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- POST review action to Neon — silent on success, toast on failure --
