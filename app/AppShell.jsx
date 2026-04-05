@@ -452,7 +452,7 @@ export default function AppShell({ children }) {
           orgId: oid,
           entry: { action, detail, level, userName, userRole: currentUser?.role || "unknown", metadata },
         }),
-      }).catch(() => {});
+      }).catch((err) => console.warn("[Audit] Neon persist failed:", err.message));
     },
     [employee, currentUser, orgId]
   );

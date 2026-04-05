@@ -84,7 +84,7 @@ function ChatContent() {
           return dbMessages;
         });
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Chat] History load failed:", err.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Save messages to sessionStorage on change --
@@ -165,12 +165,12 @@ function ChatContent() {
     };
     setTickets((prev) => [ticket, ...prev]);
 
-    // -- Persist ticket to Neon Postgres (fire-and-forget) --
+    // -- Persist ticket to Neon Postgres (fire-and-forget: local state is source of truth) --
     fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orgId: orgId || "default", ticket }),
-    }).catch(() => {}); // silently fail — localStorage is the primary store
+    }).catch((err) => console.warn("[Chat] Ticket persist failed:", err.message));
 
     addAudit(
       "RESPONSE_SENT",
@@ -359,7 +359,7 @@ function ChatContent() {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ orgId: orgId || "default", ticketId: m.ticketId, action: "rate", satisfaction: 5 }),
-                              }).catch(() => {});
+                              }).catch((err) => console.warn("[Chat] CSAT persist failed:", err.message));
                             }
                           }}
                           className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-green-50 hover:text-green-600 cursor-pointer transition-colors"
@@ -378,7 +378,7 @@ function ChatContent() {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ orgId: orgId || "default", ticketId: m.ticketId, action: "rate", satisfaction: 1 }),
-                              }).catch(() => {});
+                              }).catch((err) => console.warn("[Chat] CSAT persist failed:", err.message));
                             }
                           }}
                           className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
