@@ -249,15 +249,14 @@ function TicketsContent() {
 
   // -- Update ticket status: optimistic + awaited Neon PATCH + rollback on failure --
   const handleUpdateTicket = useCallback(async (ticketId, newStatus, resolution) => {
-    // Snapshot previous state for rollback
-    const prevTickets = tickets;
-
-    // -- Optimistic local update --
-    setTickets((prev) =>
-      prev.map((t) =>
+    // -- Capture snapshot INSIDE the functional updater so it's always current --
+    let prevTickets;
+    setTickets((prev) => {
+      prevTickets = prev;
+      return prev.map((t) =>
         t.id === ticketId ? { ...t, status: newStatus, resolution: resolution || t.resolution } : t
-      )
-    );
+      );
+    });
 
     try {
       const res = await fetch("/api/tickets", {
@@ -277,11 +276,11 @@ function TicketsContent() {
       addAudit("TICKET_UPDATE", `${ticketId} → ${newStatus}`, newStatus === "resolved" ? "success" : "warning");
       addToast("success", "Ticket Updated", `${ticketId} marked as ${newStatus}`);
     } catch (err) {
-      // -- Rollback: restore previous ticket list --
+      // -- Rollback: restore pre-optimistic state --
       setTickets(prevTickets);
       addToast("error", "Update Failed", err.message || "Could not save to database");
     }
-  }, [tickets, orgId, setTickets, addAudit, addToast]);
+  }, [orgId, setTickets, addAudit, addToast]);
 
   // -- Mode-aware: employee sees only their own tickets --
   const baseTickets = mode === "employee"

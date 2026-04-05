@@ -206,11 +206,6 @@ function CasesContent() {
 
   // -- Update case status: optimistic + awaited Neon PATCH + rollback on failure --
   const updateStatus = useCallback(async (caseId, newStatus) => {
-    const targetCase = cases.find((c) => c.id === caseId);
-    if (!targetCase) return;
-    const prevStatus = targetCase.status;
-    const prevNotes = targetCase.notes;
-
     const statusNote = {
       id:        `NOTE-${Date.now()}`,
       text:      `Status changed to: ${newStatus.replace(/_/g, " ")}`,
@@ -218,15 +213,20 @@ function CasesContent() {
       timestamp: new Date().toISOString(),
       type:      "system",
     };
-    const updatedNotes = [...prevNotes, statusNote];
 
-    // -- Optimistic local update --
-    setCases((prev) =>
-      prev.map((c) => c.id === caseId ? { ...c, status: newStatus, notes: updatedNotes } : c)
-    );
+    // -- Capture snapshots INSIDE functional updater for guaranteed current state --
+    let prevStatus, prevNotes;
+    setCases((prev) => {
+      const targetCase = prev.find((c) => c.id === caseId);
+      if (!targetCase) return prev;
+      prevStatus = targetCase.status;
+      prevNotes = targetCase.notes;
+      const updatedNotes = [...prevNotes, statusNote];
+      return prev.map((c) => c.id === caseId ? { ...c, status: newStatus, notes: updatedNotes } : c);
+    });
     setSelectedCase((prev) => {
       if (prev?.id !== caseId) return prev;
-      return { ...prev, status: newStatus, notes: updatedNotes };
+      return { ...prev, status: newStatus, notes: [...(prev.notes || []), statusNote] };
     });
 
     try {
@@ -242,15 +242,15 @@ function CasesContent() {
     } catch (err) {
       // -- Rollback: restore previous status + notes --
       setCases((prev) =>
-        prev.map((c) => c.id === caseId ? { ...c, status: prevStatus, notes: prevNotes } : c)
+        prev.map((c) => c.id === caseId && prevStatus ? { ...c, status: prevStatus, notes: prevNotes } : c)
       );
       setSelectedCase((prev) => {
-        if (prev?.id !== caseId) return prev;
+        if (prev?.id !== caseId || !prevStatus) return prev;
         return { ...prev, status: prevStatus, notes: prevNotes };
       });
       addToast("error", "Status Update Failed", err.message || "Could not save to database");
     }
-  }, [cases, employee, orgId, addAudit, addToast]);
+  }, [employee, orgId, addAudit, addToast]);
 
   // -- Admin-only access guard --
   if (mode === "employee") {
