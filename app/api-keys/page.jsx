@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../AppShell";
+import { useToast } from "@/components/layout/ToastProvider";
 
 // ============================================================================
 // API KEYS PAGE — Real DB-backed API key management
@@ -87,7 +88,8 @@ function KeyRevealModal({ rawKey, name, onClose }) {
 // ============================================================================
 
 function ApiKeysContent() {
-  const { addAudit, orgId, user } = useApp();
+  const { addAudit, orgId, currentUser } = useApp();
+  const { addToast } = useToast();
   const [keys, setKeys] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -115,9 +117,10 @@ function ApiKeysContent() {
       const res = await fetch("/api/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: orgId || "default", name, createdBy: user?.name || "Admin" }),
+        body: JSON.stringify({ orgId: orgId || "default", name, createdBy: currentUser?.name || "Admin" }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       if (data.record) {
         // -- Add to list (will show masked prefix) --
         setKeys((prev) => [data.record, ...prev]);
@@ -126,13 +129,13 @@ function ApiKeysContent() {
         addAudit("API_KEY_CREATED", `Created API key: ${name}`, "info");
       }
     } catch (err) {
-      console.error("createKey error:", err);
+      addToast("error", "Key Creation Failed", err.message || "Could not create API key");
     } finally {
       setCreating(false);
       setNewKeyName("");
       setShowCreate(false);
     }
-  }, [newKeyName, orgId, user, addAudit]);
+  }, [newKeyName, orgId, currentUser, addAudit, addToast]);
 
   // -- Revoke a key: await DB confirmation before updating UI and audit --
   const revokeKey = useCallback(async (keyId, keyName) => {
@@ -144,7 +147,7 @@ function ApiKeysContent() {
       const res = await fetch("/api/api-keys", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: orgId || "default", keyId, action: "revoke", revokedBy: user?.name || "Admin" }),
+        body: JSON.stringify({ orgId: orgId || "default", keyId, action: "revoke", revokedBy: currentUser?.name || "Admin" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // -- Audit only after confirmed DB revocation --
@@ -154,9 +157,9 @@ function ApiKeysContent() {
       setKeys((prev) => prev.map((k) =>
         k.id === keyId ? { ...k, status: "active", revoked_at: null } : k
       ));
-      console.error("[API Keys] Revoke failed:", err.message);
+      addToast("error", "Revoke Failed", err.message || "Could not revoke API key");
     }
-  }, [orgId, user, addAudit]);
+  }, [orgId, currentUser, addAudit, addToast]);
 
   const activeCount = keys.filter((k) => k.status === "active").length;
 

@@ -115,6 +115,7 @@ function DocumentsContent() {
             body: formData,
           });
           const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
           uploaded.push({
             id: data.dbId ? `db-${data.dbId}` : `upload-${Date.now()}-${uploaded.length}`,
             dbId: data.dbId || null,
@@ -133,7 +134,8 @@ function DocumentsContent() {
             fromDb: !!data.dbId,
           });
         } catch {
-          // Fallback: add without blob URL (still shows in list)
+          // -- Fallback: add without blob URL and warn user --
+          addToast("warning", "Upload Incomplete", `${file.name} saved locally — could not persist to storage`);
           uploaded.push({
             id: `upload-${Date.now()}-${uploaded.length}`,
             dbId: null,
@@ -159,7 +161,7 @@ function DocumentsContent() {
         "info"
       );
     },
-    [addAudit, orgId, currentUser]
+    [addAudit, addToast, orgId, currentUser]
   );
 
   // -- Drag-and-drop handlers --
