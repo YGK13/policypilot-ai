@@ -9,6 +9,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // -- Routes that don't require authentication --
 const isPublicRoute = createRouteMatcher([
+  "/",                  // Public landing page (marketing/SEO)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)

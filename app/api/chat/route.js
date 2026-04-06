@@ -17,6 +17,10 @@ import { requireRole } from "@/lib/auth/rbac";
 
 // -- AI Gateway is available when OIDC token exists (auto-provisioned on Vercel) --
 const HAS_AI_GATEWAY = !!process.env.VERCEL_OIDC_TOKEN;
+// -- Direct Anthropic key is the fallback when AI Gateway is not configured --
+const HAS_ANTHROPIC_KEY = !!process.env.ANTHROPIC_API_KEY;
+// -- LLM is available if either gateway or direct key is present --
+const HAS_LLM = HAS_AI_GATEWAY || HAS_ANTHROPIC_KEY;
 
 // -- Build jurisdiction context for the system prompt --
 function buildJurisdictionContext(state) {
@@ -191,12 +195,21 @@ export async function POST(request) {
       return NextResponse.json(data);
     };
 
-    // -- If LLM is available, call via AI Gateway or direct provider --
-    if (HAS_AI_GATEWAY && use_llm !== false) {
+    // -- If LLM is available, call via AI Gateway (preferred) or direct Anthropic key --
+    if (HAS_LLM && use_llm !== false) {
       try {
-        // -- AI Gateway: plain "provider/model" string routes via OIDC automatically --
+        // -- Build model: AI Gateway OIDC (preferred) or direct @ai-sdk/anthropic fallback --
+        let aiModel;
+        if (HAS_AI_GATEWAY) {
+          // AI Gateway: plain "provider/model" string routes via OIDC automatically
+          aiModel = "anthropic/claude-sonnet-4.6";
+        } else {
+          // Direct Anthropic: uses ANTHROPIC_API_KEY from env
+          const { anthropic } = await import("@ai-sdk/anthropic");
+          aiModel = anthropic("claude-sonnet-4-6");
+        }
         const { text } = await generateText({
-          model: "anthropic/claude-sonnet-4.6",
+          model: aiModel,
           system: buildSystemPrompt(employee),
           prompt: query,
           maxTokens: 1024,

@@ -85,7 +85,7 @@ export default function Sidebar() {
 
       {/* ============ Logo / Brand header ============ */}
       <div className="px-5 py-5 border-b border-gray-800">
-        <Link href="/" className="flex items-center gap-2 no-underline">
+        <Link href="/dashboard" className="flex items-center gap-2 no-underline">
           <span className="text-xl">⚡</span>
           <span className="text-base font-bold tracking-tight text-white">AI HR Pilot</span>
         </Link>

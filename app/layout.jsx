@@ -1,12 +1,12 @@
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import AppShell from "./AppShell";
 
 // ============================================================================
-// ROOT LAYOUT — Server component shell
+// ROOT LAYOUT — Minimal server component shell
 // ClerkProvider wraps everything for auth context.
-// AppShell provides app state + RBAC + sidebar/topbar chrome.
+// AppShell is now in (app)/layout.jsx — NOT here — so the marketing landing
+// page can render without auth, sidebar, or dashboard chrome.
 // ============================================================================
 
 const inter = Inter({
@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en">
         <body className={`${inter.variable} font-sans antialiased`}>
-          <AppShell>{children}</AppShell>
+          {children}
         </body>
       </html>
     </ClerkProvider>

@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
-CREATE INDEX IF NOT EXISTS idx_users_clerk ON users(clerk_id);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk ON users(clerk_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- ============================================================================
 -- TICKETS — AI chat queries that become trackable items

@@ -44,7 +44,7 @@ export default function RouteGuard({ children }) {
             Contact your HR administrator if you believe this is an error.
           </p>
           <a
-            href="/"
+            href="/dashboard"
             className="inline-block px-5 py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors"
           >
             Return to Dashboard
