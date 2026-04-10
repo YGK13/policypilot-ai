@@ -12,7 +12,8 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
     "@ai-sdk/gateway": "^3.0.83",
-    "@clerk/nextjs": "^7.0.7",
+    "@ai-sdk/react": "^3.0.156",
+    "@clerk/nextjs": "^7.0.8",
     "@neondatabase/serverless": "^1.0.2",
     "@vercel/blob": "^2.3.2",
     "ai": "^6.0.141",

@@ -1,1 +1,19 @@
-{"version":"0.0.1","configurations":[{"name":"aihrpilot","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000}]}
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aihrpilot",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "policypilot",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3005,
+      "autoPort": true
+    }
+  ]
+}

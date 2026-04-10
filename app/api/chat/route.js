@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
@@ -8,25 +8,32 @@ import { saveChatMessage, getChatHistory, isDbAvailable } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
 
 // ============================================================================
-// POST /api/chat — Hybrid LLM + local policy engine for HR queries
+// POST /api/chat — Streaming LLM + local policy engine for HR queries
 //
-// Uses Vercel AI Gateway (OIDC auth) when available for real LLM responses.
-// Falls back to local keyword-matching engine when AI Gateway is not configured.
-// Local risk scorer always runs for triage metadata (routing, risk, category).
+// LLM path (preferred):
+//   Uses Vercel AI Gateway (OIDC) or direct Anthropic key.
+//   Returns a streaming SSE response via streamText().toDataStreamResponse().
+//   Client uses useChat() from 'ai/react' to render tokens as they arrive.
+//
+// Local path (fallback when no LLM configured):
+//   Returns JSON with the local keyword-matching engine response.
+//   Client chat page detects non-streaming JSON and renders it directly.
+//
+// Metadata (routing, riskScore, category) from the local risk scorer
+// is always computed and sent as response headers so the client can
+// create tickets without waiting for the stream to finish.
 // ============================================================================
 
-// -- AI Gateway is available when OIDC token exists (auto-provisioned on Vercel) --
-const HAS_AI_GATEWAY = !!process.env.VERCEL_OIDC_TOKEN;
-// -- Direct Anthropic key is the fallback when AI Gateway is not configured --
-const HAS_ANTHROPIC_KEY = !!process.env.ANTHROPIC_API_KEY;
-// -- LLM is available if either gateway or direct key is present --
-const HAS_LLM = HAS_AI_GATEWAY || HAS_ANTHROPIC_KEY;
+// -- AI Gateway is available when OIDC token exists.
+//    In local dev: run `vercel env pull` to provision VERCEL_OIDC_TOKEN.
+//    In production: Vercel auto-provisions it on every deployment. --
+const HAS_LLM = !!process.env.VERCEL_OIDC_TOKEN;
 
 // -- Build jurisdiction context for the system prompt --
 function buildJurisdictionContext(state) {
-  const j = JURISDICTIONS[state] || JURISDICTIONS["Federal"];
+  const j   = JURISDICTIONS[state] || JURISDICTIONS["Federal"];
   const fed = JURISDICTIONS["Federal"];
-  let ctx = `\n## ${state} Employment Law Summary\n`;
+  let ctx   = `\n## ${state} Employment Law Summary\n`;
   for (const [key, val] of Object.entries(j)) {
     if (key === "flag") continue;
     ctx += `- ${key}: ${val}\n`;
@@ -50,7 +57,7 @@ function buildPolicyCatalog() {
   ).join("\n");
 }
 
-// -- System prompt for the LLM --
+// -- Full system prompt with employee context, jurisdiction law, policy catalog --
 function buildSystemPrompt(employee) {
   return `You are AI HR Pilot, an expert HR policy assistant for enterprise organizations.
 
@@ -90,8 +97,7 @@ ${buildPolicyCatalog()}
 }
 
 // ============================================================================
-// GET /api/chat?orgId=xxx&userId=xxx&sessionId=xxx&limit=50
-// Load chat history for a user/session from Neon
+// GET /api/chat — Load chat history from Neon for a session
 // ============================================================================
 export async function GET(request) {
   const guard = await requireRole("employee");
@@ -100,11 +106,12 @@ export async function GET(request) {
   if (!isDbAvailable()) {
     return NextResponse.json({ messages: [], demo: true });
   }
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
-  const userId = url.searchParams.get("userId");
+
+  const url       = new URL(request.url);
+  const orgId     = url.searchParams.get("orgId")     || "default";
+  const userId    = url.searchParams.get("userId");
   const sessionId = url.searchParams.get("sessionId");
-  const limit = parseInt(url.searchParams.get("limit") || "50");
+  const limit     = parseInt(url.searchParams.get("limit") || "50");
 
   try {
     const rows = await getChatHistory(orgId, userId, sessionId, { limit });
@@ -116,7 +123,7 @@ export async function GET(request) {
 }
 
 // ============================================================================
-// POST /api/chat — Hybrid LLM + local policy engine for HR queries
+// POST /api/chat — Streaming LLM or local JSON fallback
 // ============================================================================
 export async function POST(request) {
   const guard = await requireRole("employee");
@@ -127,18 +134,12 @@ export async function POST(request) {
     const { query, employee_id, jurisdiction, use_llm, orgId, userId, sessionId } = body;
 
     if (!query) {
-      return NextResponse.json(
-        { error: "Missing required field: query" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required field: query" }, { status: 400 });
     }
 
     // -- Hard cap on query length to prevent prompt injection / LLM cost abuse --
     if (query.length > 2000) {
-      return NextResponse.json(
-        { error: "Query too long. Maximum 2000 characters." },
-        { status: 413 }
-      );
+      return NextResponse.json({ error: "Query too long. Maximum 2000 characters." }, { status: 413 });
     }
 
     // -- Resolve employee context --
@@ -159,116 +160,147 @@ export async function POST(request) {
       };
     }
 
+    // -- Always run local engine for triage metadata --
+    const localResponse = generateResponse(query, employee);
+
+    // -- Metadata headers: sent with EVERY response (streaming or JSON)
+    //    Client reads these immediately to create tickets without waiting for stream end --
+    const metaHeaders = {
+      "X-HR-Category":   localResponse.category    || "General",
+      "X-HR-Risk":       String(localResponse.riskScore ?? 0),
+      "X-HR-Routing":    localResponse.routing      || "auto",
+      "X-HR-Confidence": String(localResponse.confidence ?? 50),
+      "X-HR-Policy-Id":  localResponse.policyId     || "",
+      "X-HR-Flags":      JSON.stringify(localResponse.flags || []),
+      "X-HR-Disclaimer": localResponse.disclaimer   ? "1" : "0",
+      "X-HR-Source":     localResponse.source       || "AI HR Pilot",
+    };
+
     // -- Save user message to Neon (fire-and-forget) --
     const saveOrg = orgId || "default";
     if (isDbAvailable()) {
       saveChatMessage(saveOrg, {
-        userId: userId || null,
+        userId:    userId    || null,
         sessionId: sessionId || null,
-        role: "user",
-        content: query,
-        metadata: { employeeId: employee_id, jurisdiction },
+        role:      "user",
+        content:   query,
+        metadata:  { employeeId: employee_id, jurisdiction },
       }).catch((err) => console.warn("[Chat API] saveChatMessage failed:", err.message));
     }
 
-    // -- Always generate local response for triage metadata --
-    const localResponse = generateResponse(query, employee);
-
-    // -- Helper to persist assistant response and return JSON --
-    const respond = (data) => {
-      if (isDbAvailable()) {
-        saveChatMessage(saveOrg, {
-          userId: userId || null,
-          sessionId: sessionId || null,
-          role: "assistant",
-          content: data.answer,
-          metadata: {
-            category: data.category,
-            riskScore: data.riskScore,
-            routing: data.routing,
-            llm: data.llm,
-            confidence: data.confidence,
-            policyId: data.policyId,
-          },
-        }).catch((err) => console.warn("[Chat API] saveChatMessage failed:", err.message));
-      }
-      return NextResponse.json(data);
-    };
-
-    // -- If LLM is available, call via AI Gateway (preferred) or direct Anthropic key --
+    // ============================================================================
+    // LLM PATH — streaming response via AI SDK streamText
+    // ============================================================================
     if (HAS_LLM && use_llm !== false) {
       try {
-        // -- Build model: AI Gateway OIDC (preferred) or direct @ai-sdk/anthropic fallback --
-        let aiModel;
-        if (HAS_AI_GATEWAY) {
-          // AI Gateway: plain "provider/model" string routes via OIDC automatically
-          aiModel = "anthropic/claude-sonnet-4.6";
-        } else {
-          // Direct Anthropic: uses ANTHROPIC_API_KEY from env
-          const { anthropic } = await import("@ai-sdk/anthropic");
-          aiModel = anthropic("claude-sonnet-4-6");
-        }
-        const { text } = await generateText({
-          model: aiModel,
-          system: buildSystemPrompt(employee),
-          prompt: query,
+        // -- AI Gateway: plain "provider/model" string routes via OIDC automatically.
+        //    No API key needed — VERCEL_OIDC_TOKEN handles auth. --
+        const aiModel = "anthropic/claude-sonnet-4.6";
+
+        const result = streamText({
+          model:     aiModel,
+          system:    buildSystemPrompt(employee),
+          prompt:    query,
           maxTokens: 1024,
+
+          // -- onFinish: persist assistant message to Neon after stream completes --
+          onFinish: ({ text }) => {
+            if (isDbAvailable()) {
+              saveChatMessage(saveOrg, {
+                userId:    userId    || null,
+                sessionId: sessionId || null,
+                role:      "assistant",
+                content:   text,
+                metadata:  {
+                  category:   localResponse.category,
+                  riskScore:  localResponse.riskScore,
+                  routing:    localResponse.routing,
+                  confidence: localResponse.confidence,
+                  policyId:   localResponse.policyId,
+                  llm:        true,
+                },
+              }).catch((err) => console.warn("[Chat API] saveChatMessage (stream) failed:", err.message));
+            }
+          },
         });
 
-        return respond({
-          answer: text,
-          source: localResponse.source || "AI HR Pilot (LLM)",
-          category: localResponse.category,
-          riskScore: localResponse.riskScore,
-          routing: localResponse.routing,
-          flags: localResponse.flags,
-          disclaimer: localResponse.disclaimer,
-          confidence: Math.min(98, localResponse.confidence + 10),
-          policyId: localResponse.policyId,
-          llm: true,
-          llm_attempted: true,
-          llm_failed: false,
+        // -- Return plain text stream with metadata headers.
+        //    toTextStreamResponse() emits raw text chunks (no SSE envelope)
+        //    so the client can progressively append tokens to the HTML message. --
+        const streamResponse = result.toTextStreamResponse();
+        const responseHeaders = new Headers(streamResponse.headers);
+        for (const [k, v] of Object.entries(metaHeaders)) {
+          responseHeaders.set(k, v);
+        }
+        responseHeaders.set("X-HR-LLM", "1");
+        responseHeaders.set("X-HR-LLM-Failed", "0");
+
+        return new Response(streamResponse.body, {
+          status:  streamResponse.status,
+          headers: responseHeaders,
         });
       } catch (llmError) {
-        console.error("[AI HR Pilot] LLM call failed, falling back to local:", llmError.message);
-        // Fall through to local response below with failure flag
-        return respond({
-          answer: localResponse.answer,
-          source: localResponse.source,
-          category: localResponse.category,
-          riskScore: localResponse.riskScore,
-          routing: localResponse.routing,
-          flags: localResponse.flags,
+        console.error("[Chat API] streamText failed, falling back to local:", llmError.message);
+        // -- Fall through to local JSON response with failure flag --
+        return NextResponse.json({
+          answer:     localResponse.answer,
+          source:     localResponse.source,
+          category:   localResponse.category,
+          riskScore:  localResponse.riskScore,
+          routing:    localResponse.routing,
+          flags:      localResponse.flags,
           disclaimer: localResponse.disclaimer,
           confidence: localResponse.confidence,
-          policyId: localResponse.policyId,
-          llm: false,
+          policyId:   localResponse.policyId,
+          llm:        false,
           llm_attempted: true,
           llm_failed: true,
+        }, {
+          headers: { ...metaHeaders, "X-HR-LLM": "0", "X-HR-LLM-Failed": "1" },
         });
       }
     }
 
-    // -- Local-only response (no LLM configured) --
-    return respond({
-      answer: localResponse.answer,
-      source: localResponse.source,
-      category: localResponse.category,
-      riskScore: localResponse.riskScore,
-      routing: localResponse.routing,
-      flags: localResponse.flags,
-      disclaimer: localResponse.disclaimer,
-      confidence: localResponse.confidence,
-      policyId: localResponse.policyId,
-      llm: false,
+    // ============================================================================
+    // LOCAL-ONLY PATH — JSON response, no LLM configured
+    // ============================================================================
+
+    // -- Save local response to Neon --
+    if (isDbAvailable()) {
+      saveChatMessage(saveOrg, {
+        userId:    userId    || null,
+        sessionId: sessionId || null,
+        role:      "assistant",
+        content:   localResponse.answer,
+        metadata:  {
+          category:   localResponse.category,
+          riskScore:  localResponse.riskScore,
+          routing:    localResponse.routing,
+          confidence: localResponse.confidence,
+          policyId:   localResponse.policyId,
+          llm:        false,
+        },
+      }).catch((err) => console.warn("[Chat API] saveChatMessage (local) failed:", err.message));
+    }
+
+    return NextResponse.json({
+      answer:        localResponse.answer,
+      source:        localResponse.source,
+      category:      localResponse.category,
+      riskScore:     localResponse.riskScore,
+      routing:       localResponse.routing,
+      flags:         localResponse.flags,
+      disclaimer:    localResponse.disclaimer,
+      confidence:    localResponse.confidence,
+      policyId:      localResponse.policyId,
+      llm:           false,
       llm_attempted: false,
-      llm_failed: false,
+      llm_failed:    false,
+    }, {
+      headers: { ...metaHeaders, "X-HR-LLM": "0", "X-HR-LLM-Failed": "0" },
     });
   } catch (error) {
-    console.error("[AI HR Pilot] Chat API error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[Chat API] Unhandled error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -225,3 +225,29 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 CREATE INDEX IF NOT EXISTS idx_api_keys_org ON api_keys(org_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+
+-- ============================================================================
+-- SELF-SERVICE REQUESTS
+-- Persists PTO, leave of absence, and personal info change requests.
+-- PTO/leave requests are also mirrored in tickets for HR visibility;
+-- info_update requests are stored here only (low risk, no ticket needed).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS self_service_requests (
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id        TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id       TEXT REFERENCES users(id),
+  employee_id   TEXT,                       -- demo employee ID (before DB user exists)
+  action        TEXT NOT NULL,              -- 'pto' | 'leave' | 'info_update'
+  status        TEXT DEFAULT 'pending',     -- pending | approved | denied | completed
+  payload       JSONB DEFAULT '{}',         -- form data (dates, type, fields changed, etc.)
+  ticket_id     TEXT,                       -- FK to tickets (for pto/leave only)
+  notes         TEXT,
+  reviewed_by   TEXT REFERENCES users(id),
+  reviewed_at   TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ssr_org ON self_service_requests(org_id);
+CREATE INDEX IF NOT EXISTS idx_ssr_user ON self_service_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_ssr_action ON self_service_requests(org_id, action);
+CREATE INDEX IF NOT EXISTS idx_ssr_status ON self_service_requests(org_id, status);

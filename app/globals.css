@@ -142,6 +142,19 @@ body {
   30% { transform: translateY(-4px); opacity: 1; }
 }
 
+/* -- Streaming cursor: blinks while LLM tokens are arriving -- */
+.streaming-cursor {
+  display: inline-block;
+  color: var(--color-brand-500);
+  font-weight: 700;
+  animation: cursorBlink 0.7s step-start infinite;
+  margin-left: 1px;
+}
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* -- Message animation -- */
 @keyframes msgIn {
   from { opacity: 0; transform: translateY(6px); }

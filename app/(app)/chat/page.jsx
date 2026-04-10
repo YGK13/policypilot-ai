@@ -46,6 +46,8 @@ function ChatContent() {
     return saved !== null ? saved === "true" : true;
   });
   const chatEndRef = useRef(null);
+  // -- Tracks whether a stream is in-flight; prevents double-send during streaming --
+  const streamingRef = useRef(false);
 
   // -- Persist llmEnabled to localStorage on change --
   useEffect(() => {
@@ -116,31 +118,40 @@ function ChatContent() {
   }, [messages, isTyping]);
 
   // -- Process a response (shared between LLM and local paths) --
-  const processResponse = useCallback((resp, q) => {
+  // existingId: if provided, update an already-inserted streaming message instead of pushing a new one
+  const processResponse = useCallback((resp, q, existingId = null) => {
     const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     // -- Generate ticket ID first so we can link it to the bot message --
     const ticketId = genId();
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now() + 1,
-        type: "bot",
-        content: resp.answer,
-        source: resp.source,
-        routing: resp.routing,
-        riskScore: resp.riskScore,
-        flags: resp.flags,
-        disclaimer: resp.disclaimer,
-        category: resp.category,
-        time: botTime,
-        confidence: resp.confidence,
-        policyId: resp.policyId,
-        llm: resp.llm || false,
-        ticketId, // link to the ticket created from this response
-      },
-    ]);
+    if (existingId) {
+      // -- Streaming path: message already in DOM, just stamp the ticket link --
+      setMessages((prev) =>
+        prev.map((m) => m.id === existingId ? { ...m, ticketId } : m)
+      );
+    } else {
+      // -- Non-streaming path: push a new bot message --
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          type: "bot",
+          content: resp.answer,
+          source: resp.source,
+          routing: resp.routing,
+          riskScore: resp.riskScore,
+          flags: resp.flags,
+          disclaimer: resp.disclaimer,
+          category: resp.category,
+          time: botTime,
+          confidence: resp.confidence,
+          policyId: resp.policyId,
+          llm: resp.llm || false,
+          ticketId,
+        },
+      ]);
+    }
 
     // -- Auto-create ticket --
     const nowFull = new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -186,12 +197,12 @@ function ChatContent() {
         resp.riskScore >= 75 ? "critical" : "warning"
       );
     }
-  }, [employee, addAudit, setTickets, addToast, addNotification]);
+  }, [employee, orgId, addAudit, setTickets, addToast, addNotification]);
 
   // -- Send message (accepts optional direct text to bypass stale state) --
   const sendMessage = useCallback(async (directText) => {
     const q = (typeof directText === "string" ? directText : input).trim();
-    if (!q || isTyping) return;
+    if (!q || isTyping || streamingRef.current) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setMessages((prev) => [...prev, { id: Date.now(), type: "user", content: q, time: timeStr }]);
@@ -200,7 +211,7 @@ function ChatContent() {
     setContext((prev) => [...prev.slice(-4), { role: "user", text: q }]);
     addAudit("QUERY_RECEIVED", `"${q.substring(0, 80)}${q.length > 80 ? "..." : ""}"`, "info");
 
-    // -- Try API route first (LLM-powered if ANTHROPIC_API_KEY is set on server) --
+    // -- Try API route (LLM streaming via AI Gateway or JSON local fallback) --
     if (llmEnabled) {
       try {
         const res = await fetch("/api/chat", {
@@ -220,13 +231,81 @@ function ChatContent() {
         });
 
         if (res.ok) {
+          // -- Read triage metadata from response headers (always present) --
+          const metaFromHeaders = {
+            category:   res.headers.get("X-HR-Category")  || "General",
+            riskScore:  parseInt(res.headers.get("X-HR-Risk")        || "0",  10),
+            routing:    res.headers.get("X-HR-Routing")   || "auto",
+            confidence: parseInt(res.headers.get("X-HR-Confidence")  || "50", 10),
+            policyId:   res.headers.get("X-HR-Policy-Id") || "",
+            flags:      (() => { try { return JSON.parse(res.headers.get("X-HR-Flags") || "[]"); } catch { return []; } })(),
+            disclaimer: res.headers.get("X-HR-Disclaimer") === "1",
+            source:     res.headers.get("X-HR-Source")    || "AI HR Pilot",
+          };
+
+          const isLLMStream = res.headers.get("X-HR-LLM") === "1";
+
+          // ============================================================
+          // STREAMING PATH — LLM text chunks arrive progressively
+          // ============================================================
+          if (isLLMStream && res.body) {
+            const streamMsgId = Date.now() + 1;
+            streamingRef.current = true;
+
+            // -- Insert placeholder message immediately so user sees typing start --
+            setIsTyping(false);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: streamMsgId,
+                type: "bot",
+                content: "",      // tokens appended as they arrive
+                streaming: true,  // triggers cursor animation in renderer
+                time: timeStr,
+                llm: true,
+                ...metaFromHeaders,
+              },
+            ]);
+
+            // -- Progressive token accumulation via ReadableStream --
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulated = "";
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                accumulated += decoder.decode(value, { stream: true });
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === streamMsgId ? { ...m, content: accumulated } : m
+                  )
+                );
+              }
+            } finally {
+              streamingRef.current = false;
+            }
+
+            // -- Finalize: remove streaming flag, stamp ticket link --
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === streamMsgId ? { ...m, streaming: false } : m
+              )
+            );
+            processResponse({ answer: accumulated, llm: true, ...metaFromHeaders }, q, streamMsgId);
+            return;
+          }
+
+          // ============================================================
+          // JSON PATH — LLM failed or no LLM configured (local engine)
+          // ============================================================
           const resp = await res.json();
           setIsTyping(false);
           processResponse(resp, q);
           return;
         }
       } catch {
-        // API failed — fall back to local engine silently
+        // Network or parse error — fall through to local engine
       }
     }
 
@@ -235,7 +314,7 @@ function ChatContent() {
     resp.llm = false;
     setIsTyping(false);
     processResponse(resp, q);
-  }, [input, isTyping, employee, addAudit, llmEnabled, processResponse]);
+  }, [input, isTyping, employee, addAudit, llmEnabled, processResponse, currentUser, orgId]);
 
   const suggestions = [
     "What's my PTO balance?",
@@ -299,8 +378,11 @@ function ChatContent() {
               <div className="max-w-[65%]">
                 <div
                   className={`px-4 py-3 rounded-xl text-[13px] leading-[1.7] ${isBot ? "bg-white border border-gray-200 rounded-bl-sm" : "bg-gradient-to-br from-brand-500 to-brand-700 text-white rounded-br-sm"}`}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.content) }}
-                />
+                >
+                  {/* -- dangerouslySetInnerHTML + streaming cursor sibling -- */}
+                  <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.content) }} />
+                  {m.streaming && <span className="streaming-cursor">▌</span>}
+                </div>
                 <div className={`flex items-center gap-1.5 mt-1 text-[10px] text-gray-400 flex-wrap ${m.type === "user" ? "justify-end" : ""}`}>
                   <span>{m.time}</span>
                   {isBot && m.source && (

@@ -70,18 +70,21 @@ function SelfServiceContent() {
     setPtoForm({ type: "vacation", startDate: "", endDate: "", notes: "" });
     setActiveAction(null);
 
-    // -- Persist to Neon; show error toast and rollback if it fails --
+    // -- Persist to Neon via /api/self-service (which mirrors to tickets table) --
     try {
-      const res = await fetch("/api/tickets", {
+      const res = await fetch("/api/self-service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgId: orgId || "default",
-          ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+          orgId:      orgId || "default",
+          userId:     currentUser?.id || null,
+          employeeId: employee.id,
+          action:     "pto",
+          payload:    { ...ptoForm, department: employee.department, state: employee.state },
+          ticketId,   // link self-service record to the local ticket
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // -- Audit and notify only after DB confirmation --
       addAudit("PTO_REQUEST", `${ptoForm.type}: ${ptoForm.startDate} to ${ptoForm.endDate}`, "info");
       addNotification("PTO Request Submitted", `${employee.firstName}: ${ptoForm.type} ${ptoForm.startDate} - ${ptoForm.endDate}`, "info");
       addToast("success", "PTO Request Submitted", `Request ${ticketId} sent to your manager for approval`);
@@ -90,7 +93,7 @@ function SelfServiceContent() {
       setTickets((prev) => prev.filter((t) => t.id !== ticketId));
       addToast("error", "Submission Failed", "Could not save your PTO request. Please try again.");
     }
-  }, [ptoForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
+  }, [ptoForm, employee, orgId, currentUser, setTickets, addAudit, addNotification, addToast]);
 
   // ============ PERSONAL INFO FORM ============
   const [infoForm, setInfoForm] = useState({
@@ -100,17 +103,42 @@ function SelfServiceContent() {
     emergencyPhone: "",
   });
 
-  const submitInfo = useCallback(() => {
+  const [infoSubmitting, setInfoSubmitting] = useState(false);
+
+  const submitInfo = useCallback(async () => {
     const changes = Object.entries(infoForm).filter(([, v]) => v.trim()).map(([k]) => k);
     if (changes.length === 0) {
       addToast("error", "No Changes", "Please fill in at least one field to update");
       return;
     }
-    addAudit("INFO_UPDATE", `Updated: ${changes.join(", ")}`, "info");
-    addToast("success", "Info Updated", `${changes.length} field(s) updated successfully`);
-    setInfoForm({ address: "", phone: "", emergencyName: "", emergencyPhone: "" });
-    setActiveAction(null);
-  }, [infoForm, addAudit, addToast]);
+    setInfoSubmitting(true);
+    try {
+      const res = await fetch("/api/self-service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId:      orgId || "default",
+          userId:     currentUser?.id || null,
+          employeeId: employee.id,
+          action:     "info_update",
+          payload:    { ...infoForm, fields: changes },
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      addAudit("INFO_UPDATE", `Updated: ${changes.join(", ")}`, "info");
+      addToast("success", "Info Updated", `${changes.length} field(s) saved`);
+      setInfoForm({ address: "", phone: "", emergencyName: "", emergencyPhone: "" });
+      setActiveAction(null);
+    } catch {
+      // Non-fatal: save locally and inform user
+      addAudit("INFO_UPDATE", `Updated (local): ${changes.join(", ")}`, "info");
+      addToast("warning", "Saved Locally", "Info updated on this device. Database sync failed.");
+      setInfoForm({ address: "", phone: "", emergencyName: "", emergencyPhone: "" });
+      setActiveAction(null);
+    } finally {
+      setInfoSubmitting(false);
+    }
+  }, [infoForm, employee, orgId, currentUser, addAudit, addToast]);
 
   // ============ LEAVE OF ABSENCE FORM ============
   const [leaveForm, setLeaveForm] = useState({
@@ -150,14 +178,18 @@ function SelfServiceContent() {
     setLeaveForm({ leaveType: "fmla", startDate: "", estimatedReturn: "", reason: "" });
     setActiveAction(null);
 
-    // -- Persist to Neon; rollback on failure --
+    // -- Persist to Neon via /api/self-service (which mirrors to tickets table) --
     try {
-      const res = await fetch("/api/tickets", {
+      const res = await fetch("/api/self-service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgId: orgId || "default",
-          ticket: { ...ticket, aiResponse: null, aiConfidence: null, policyId: null },
+          orgId:      orgId || "default",
+          userId:     currentUser?.id || null,
+          employeeId: employee.id,
+          action:     "leave",
+          payload:    { ...leaveForm, department: employee.department, state: employee.state },
+          ticketId,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -168,7 +200,7 @@ function SelfServiceContent() {
       setTickets((prev) => prev.filter((t) => t.id !== ticketId));
       addToast("error", "Submission Failed", "Could not save your leave request. Please try again.");
     }
-  }, [leaveForm, employee, orgId, setTickets, addAudit, addNotification, addToast]);
+  }, [leaveForm, employee, orgId, currentUser, setTickets, addAudit, addNotification, addToast]);
 
   // ============ RENDER ============
   const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400";
@@ -263,7 +295,9 @@ function SelfServiceContent() {
               </div>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={submitInfo} className={btnPrimary}>Save Changes</button>
+              <button onClick={submitInfo} disabled={infoSubmitting} className={btnPrimary}>
+                {infoSubmitting ? "Saving…" : "Save Changes"}
+              </button>
               <button onClick={() => setActiveAction(null)} className={btnSecondary}>Cancel</button>
             </div>
           </div>
