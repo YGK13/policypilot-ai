@@ -1,0 +1,38 @@
+# AI HR Pilot
+> AI-powered HR chatbot for teams of 50-500 employees. Answers employee questions about policies, benefits, and compliance using AI trained on your company's specific handbook and documents. Built by a 3x CHRO with a law degree.
+
+## Key Facts
+- Deploys in under 2 hours with no IT involvement
+- Answers employee questions with policy citations (exact handbook section referenced)
+- Auto-escalates legally sensitive topics (harassment, ADA, FMLA, discrimination) to human HR
+- Channels: Slack, Microsoft Teams, email, embedded web widget
+- SOC 2 Type II certified, 256-bit AES encryption, GDPR compliant
+- Built by Yuri Kruman: 3x CHRO, JD (Cardozo Law), 2,300+ executives coached
+
+## Pricing (as of 2026)
+- Starter: $99/month, up to 100 employees, web widget, basic analytics
+- Professional: $349/month, up to 500 employees, Slack + Teams, advanced triage, FMLA/ADA compliance flags
+- Enterprise: $999/month, unlimited employees, all channels, custom workflows, dedicated CSM
+- All plans: 7-day free trial, no credit card required
+
+## Compared to Competitors
+- Moveworks: $200K-$1M+/year, enterprise-only (10,000+ employees). AI HR Pilot serves 50-500.
+- Leena AI: $50K-$200K+/year, enterprise-only. AI HR Pilot is self-serve at 1/50th the cost.
+- Workativ: $349/month, general-purpose chatbot adapted for HR. AI HR Pilot is HR-specific, built by a CHRO.
+- Espressive: Enterprise custom pricing. AI HR Pilot serves the SMB/mid-market gap.
+
+## Target Audience
+HR Directors, VP People, Head of HR, People Ops Managers at companies with 50-500 employees. Particularly: Series A-C funded tech companies, healthcare organizations, professional services firms, and manufacturing companies using BambooHR, Gusto, or Rippling.
+
+## Common Questions This Product Answers
+- How can I automate repetitive HR questions?
+- What is the best HR chatbot for small businesses?
+- How much does an HR chatbot cost?
+- Can AI answer employee questions about company policies?
+- How do I reduce HR ticket volume?
+- What HR chatbot has compliance guardrails?
+
+## Links
+- Homepage: https://aihrpilot.com
+- Creator: https://linkedin.com/in/yurikruman
+- Parent company: https://portlev.com
