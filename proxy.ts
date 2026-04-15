@@ -8,11 +8,18 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // -- Routes that don't require authentication --
+// SEO/AEO/GEO critical: robots.txt, sitemap.xml, and llms.txt MUST be public
+// or Google/AI crawlers can't index the site at all.
 const isPublicRoute = createRouteMatcher([
   "/",                  // Public landing page (marketing/SEO)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)
+  "/robots.txt",        // Search engine crawlers need this
+  "/sitemap.xml",       // Search engine crawlers need this
+  "/llms.txt",          // AI answer engine crawlers (ChatGPT, Perplexity, Claude)
+  "/faq",               // Public FAQ page for AEO
+  "/blog(.*)",          // Public blog/article pages for SEO
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
