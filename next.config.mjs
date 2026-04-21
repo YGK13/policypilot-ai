@@ -27,19 +27,23 @@ nextConfig.headers = () => [
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       // -- HSTS: force HTTPS for 1 year --
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
-      // -- CSP: restrict script sources to self + inline (needed for React + Clerk) --
-      // Clerk satellite domain: clerk.aihrpilot.com serves clerk.js, UI assets,
-      // and acts as the FAPI proxy — must be in every directive that touches network.
+      // -- CSP: restrict sources to self + inline + auth/captcha providers --
+      // Clerk production satellite:  clerk.aihrpilot.com (FAPI + clerk.js).
+      // Clerk Account Portal:        accounts.aihrpilot.com (hosted sign-in/OAuth redirects).
+      // Cloudflare Turnstile:        challenges.cloudflare.com (bot-protection widget
+      //                              that Clerk renders inside the <SignUp /> form — without
+      //                              this the sign-up CAPTCHA fails to load and the form hangs).
+      // Clerk services DNS:          *.clerk.services (internal Clerk worker aliases).
       {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com",
-          "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com",
-          "img-src 'self' data: blob: https://*.clerk.accounts.dev https://*.clerk.com https://img.clerk.com https://clerk.aihrpilot.com",
-          "font-src 'self' data: https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com",
-          "connect-src 'self' https://api.anthropic.com https://*.vercel.app https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com",
-          "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.services https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com",
+          "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
+          "img-src 'self' data: blob: https://*.clerk.accounts.dev https://*.clerk.com https://img.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
+          "font-src 'self' data: https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
+          "connect-src 'self' https://api.anthropic.com https://*.vercel.app https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.services https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com",
+          "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com",
           "frame-ancestors 'none'",
           "worker-src 'self' blob:",
         ].join("; "),
