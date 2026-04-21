@@ -31,8 +31,22 @@ HR Directors, VP People, Head of HR, People Ops Managers at companies with 50-50
 - Can AI answer employee questions about company policies?
 - How do I reduce HR ticket volume?
 - What HR chatbot has compliance guardrails?
+- What are the 20 most common employee HR questions?
+- How does AI HR Pilot compare to Moveworks, Leena AI and Workativ?
+- Which HR jobs are at risk from AI?
+- How do I automate HR without losing the human touch?
+
+## Featured Articles
+- 20 Most Common Employee Questions HR Teams Answer: https://aihrpilot.com/blog/20-most-common-employee-questions-hr-teams-answer
+- HR Chatbots 2026 Complete Buyer's Guide: https://aihrpilot.com/blog/hr-chatbots-2026-complete-buyers-guide
+- AI HR Pilot vs Moveworks Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-moveworks
+- AI HR Pilot vs Leena AI Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-leena-ai
+- AI HR Pilot vs Workativ Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-workativ
+- How to Automate HR Without Losing the Human Touch: https://aihrpilot.com/blog/how-to-automate-hr-without-losing-human-touch
+- HR Onboarding Automation Guide: https://aihrpilot.com/blog/hr-onboarding-automation-guide
 
 ## Links
 - Homepage: https://aihrpilot.com
+- Blog: https://aihrpilot.com/blog
 - Creator: https://linkedin.com/in/yurikruman
 - Parent company: https://portlev.com
