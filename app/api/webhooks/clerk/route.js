@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
+import { clerkClient } from "@clerk/nextjs/server";
 import { isDbAvailable, getDb } from "@/lib/db";
 
 // ============================================================================
@@ -89,8 +90,28 @@ export async function POST(request) {
       const user = data;
       const email = user.email_addresses?.[0]?.email_address || "";
       const name = `${user.first_name || ""} ${user.last_name || ""}`.trim() || email;
-      const role = user.public_metadata?.role || "employee";
       const clerkId = user.id;
+
+      // -- Role assignment (B2B self-serve model) --------------------------------
+      // A self-signup is the person setting up their own company, so they become
+      // that org's admin (hr_admin). Invited teammates arrive with a role already
+      // set in publicMetadata (via the invitation), which we never override.
+      // We only auto-assign on user.created, and write it back to Clerk so the
+      // value propagates to the client (useUser) and session claims used by RBAC.
+      let role = user.public_metadata?.role;
+      if (!role && type === "user.created" && !user.organization_memberships?.[0]) {
+        role = "hr_admin";
+        try {
+          const client = await clerkClient();
+          await client.users.updateUserMetadata(clerkId, {
+            publicMetadata: { ...(user.public_metadata || {}), role },
+          });
+          console.log(`[Webhook] Auto-assigned hr_admin to self-signup ${clerkId}`);
+        } catch (metaErr) {
+          console.warn("[Webhook] Failed to set hr_admin publicMetadata:", metaErr.message);
+        }
+      }
+      role = role || "employee";
 
       // -- Resolve org: use Clerk organization if present, otherwise "default" --
       const clerkOrgId = user.organization_memberships?.[0]?.organization?.id;
