@@ -345,8 +345,15 @@ export default function AppShell({ children }) {
     () => saved.current?.notifications || []
   );
 
-  // -- orgId from Neon (populated after Clerk webhook fires on first sign-in) --
+  // -- orgId from Neon (populated by /api/bootstrap on first sign-in) --
   const [orgId, setOrgId] = useState(() => saved.current?.orgId || "default");
+
+  // -- First-run provisioning state. A brand-new self-signup has no role yet;
+  //    we call /api/bootstrap to assign hr_admin + create their DB rows, then
+  //    reload the Clerk user so RBAC sees the role. Gates the UI until resolved
+  //    so there is no flash of "Access Denied" during propagation. --
+  const bootstrapAttempted = useRef(false);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
 
   // -- Hydration flag (prevents flash of login screen on refresh) --
   useEffect(() => {
@@ -371,6 +378,29 @@ export default function AppShell({ children }) {
     };
     loadOrg();
   }, [clerkUser.isSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -- Provision a freshly signed-up user: assign role + create DB rows, then
+  //    reload the Clerk user so publicMetadata.role is visible to RBAC. Runs
+  //    once; the ref guard prevents repeat POSTs across re-renders. --
+  useEffect(() => {
+    if (!CLERK_ENABLED || !clerkUser.isSignedIn || !clerkUser.user) return;
+    if (clerkUser.user.publicMetadata?.role) {
+      setBootstrapDone(true);
+      return;
+    }
+    if (bootstrapAttempted.current) return;
+    bootstrapAttempted.current = true;
+    (async () => {
+      try {
+        await fetch("/api/bootstrap", { method: "POST" });
+        await clerkUser.user.reload(); // refresh publicMetadata so RBAC sees the role
+      } catch (err) {
+        console.warn("[Bootstrap] client provisioning failed:", err.message);
+      } finally {
+        setBootstrapDone(true);
+      }
+    })();
+  }, [clerkUser.isSignedIn, clerkUser.user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Persist state --
   useEffect(() => {
@@ -526,6 +556,28 @@ export default function AppShell({ children }) {
   // -- If Clerk is enabled but user not signed in, redirect to sign-in --
   if (CLERK_ENABLED && !clerkUser.isSignedIn) {
     return <RedirectToSignIn />;
+  }
+
+  // -- Clerk: provision a brand-new self-signup before rendering the app, so
+  //    RBAC never flashes "Access Denied" while the role propagates. Falls
+  //    through once bootstrap completes (role set) or fails (bootstrapDone). --
+  if (
+    CLERK_ENABLED &&
+    clerkUser.isSignedIn &&
+    !clerkUser.user?.publicMetadata?.role &&
+    !bootstrapDone
+  ) {
+    return (
+      <ToastProvider>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="w-10 h-10 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-sm font-medium text-gray-700">Setting up your workspace…</p>
+            <p className="text-xs text-gray-400 mt-1">This only takes a moment.</p>
+          </div>
+        </div>
+      </ToastProvider>
+    );
   }
 
   // -- Demo mode: show login screen if no session --
