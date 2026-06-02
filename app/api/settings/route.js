@@ -20,8 +20,7 @@ export async function GET(request) {
     return NextResponse.json({ settings: null, demo: true });
   }
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   try {
     const sql = getDb();
@@ -48,9 +47,10 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, settings } = body;
+    const { settings } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !settings) {
-      return NextResponse.json({ error: "Missing orgId or settings" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or settings" }, { status: 400 });
     }
 
     const sql = getDb();

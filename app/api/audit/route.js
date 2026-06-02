@@ -18,7 +18,7 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "demo-org";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
   const limit = parseInt(url.searchParams.get("limit") || "100");
   const offset = parseInt(url.searchParams.get("offset") || "0");
 
@@ -42,9 +42,10 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, entry } = body;
+    const { entry } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !entry?.action) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or action" }, { status: 400 });
     }
 
     const created = await createAuditEntry(orgId, entry);

@@ -25,8 +25,7 @@ export async function GET(request) {
     return NextResponse.json({ cases: [], demo: true });
   }
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   try {
     const rows = await getCases(orgId);
@@ -58,9 +57,10 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, caseObj } = body;
+    const { caseObj } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !caseObj) {
-      return NextResponse.json({ error: "Missing orgId or caseObj" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or caseObj" }, { status: 400 });
     }
 
     const saved = await createCase(orgId, caseObj);
@@ -87,9 +87,10 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, caseId, action, status, notes } = body;
+    const { caseId, action, status, notes } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !caseId) {
-      return NextResponse.json({ error: "Missing orgId or caseId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or caseId" }, { status: 400 });
     }
 
     const updates = {};

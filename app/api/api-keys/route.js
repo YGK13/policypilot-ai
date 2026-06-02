@@ -20,8 +20,7 @@ export async function GET(request) {
   const guard = await requireRole("hr_admin");
   if (guard.error) return guard.error;
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   if (!isDbAvailable()) {
     return NextResponse.json({ keys: [], demo: true });
@@ -47,10 +46,11 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, name, createdBy } = body;
+    const { name, createdBy } = body;
+    const orgId = guard.session.orgId;
 
     if (!orgId || !name) {
-      return NextResponse.json({ error: "Missing required fields: orgId, name" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or name" }, { status: 400 });
     }
 
     // -- Generate a cryptographically secure random key --
@@ -96,10 +96,11 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, keyId, action, revokedBy } = body;
+    const { keyId, action, revokedBy } = body;
+    const orgId = guard.session.orgId;
 
     if (!orgId || !keyId || action !== "revoke") {
-      return NextResponse.json({ error: "Missing required fields: orgId, keyId, action='revoke'" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or keyId, or action!='revoke'" }, { status: 400 });
     }
 
     if (!isDbAvailable()) {

@@ -16,8 +16,7 @@ export async function GET(request) {
   const guard = await requireRole("hr_staff");
   if (guard.error) return guard.error;
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   if (!isDbAvailable()) {
     return NextResponse.json({ integrations: [], demo: true });
@@ -42,10 +41,11 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, connectorId, status, config, syncFields, actor } = body;
+    const { connectorId, status, config, syncFields, actor } = body;
+    const orgId = guard.session.orgId;
 
     if (!orgId || !connectorId) {
-      return NextResponse.json({ error: "Missing required fields: orgId, connectorId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or connectorId" }, { status: 400 });
     }
 
     if (!isDbAvailable()) {

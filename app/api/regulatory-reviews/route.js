@@ -25,8 +25,7 @@ export async function GET(request) {
     return NextResponse.json({ reviews: [], demo: true });
   }
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   try {
     const sql = getDb();
@@ -53,11 +52,12 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, updateId, status, reviewerName, notes, affectedPolicies } = body;
+    const { updateId, status, reviewerName, notes, affectedPolicies } = body;
+    const orgId = guard.session.orgId;
 
     if (!orgId || !updateId || !status) {
       return NextResponse.json(
-        { error: "Missing required fields: orgId, updateId, status" },
+        { error: "Missing required fields: updateId, status" },
         { status: 400 }
       );
     }

@@ -21,8 +21,7 @@ export async function GET(request) {
   const guard = await requireRole("hr_admin");
   if (guard.error) return guard.error;
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   if (!isDbAvailable()) {
     return NextResponse.json({ plan: "starter", planName: "Starter", demo: true });

@@ -23,7 +23,7 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
   const status = url.searchParams.get("status");
   const userId = url.searchParams.get("userId");
   const limit = parseInt(url.searchParams.get("limit") || "50");
@@ -48,9 +48,10 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, ticket } = body;
+    const { ticket } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !ticket?.id || !ticket?.query) {
-      return NextResponse.json({ error: "Missing required fields: orgId, ticket.id, ticket.query" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context, ticket.id, or ticket.query" }, { status: 400 });
     }
 
     const created = await createTicket(orgId, ticket);
@@ -88,16 +89,17 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, ticketId, action, status, resolution, satisfaction } = body;
+    const { ticketId, action, status, resolution, satisfaction } = body;
 
-    if (!orgId || !ticketId || !action) {
-      return NextResponse.json({ error: "Missing required fields: orgId, ticketId, action" }, { status: 400 });
+    if (!ticketId || !action) {
+      return NextResponse.json({ error: "Missing required fields: ticketId, action" }, { status: 400 });
     }
 
     if (action === "update_status") {
       // -- Status changes are privileged: hr_staff or above --
       const guard = await requireRole("hr_staff");
       if (guard.error) return guard.error;
+      const orgId = guard.session.orgId; // authoritative org, not client-supplied
 
       if (!status) {
         return NextResponse.json({ error: "Missing status field" }, { status: 400 });
@@ -110,6 +112,7 @@ export async function PATCH(request) {
       // -- Rating is self-service: any authenticated user --
       const guard = await requireRole("employee");
       if (guard.error) return guard.error;
+      const orgId = guard.session.orgId; // authoritative org, not client-supplied
 
       if (satisfaction == null) {
         return NextResponse.json({ error: "Missing satisfaction field" }, { status: 400 });

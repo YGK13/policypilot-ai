@@ -16,8 +16,7 @@ export async function GET(request) {
     return NextResponse.json({ documents: [], demo: true });
   }
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
 
   try {
     const docs = await getDocuments(orgId);
@@ -37,9 +36,10 @@ export async function DELETE(request) {
   }
 
   try {
-    const { orgId, docId, blobUrl } = await request.json();
+    const { docId, blobUrl } = await request.json();
+    const orgId = guard.session.orgId;
     if (!orgId || !docId) {
-      return NextResponse.json({ error: "Missing orgId or docId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or docId" }, { status: 400 });
     }
 
     // -- Delete from Neon --

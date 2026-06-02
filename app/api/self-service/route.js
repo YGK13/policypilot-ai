@@ -34,7 +34,7 @@ export async function GET(request) {
   }
 
   const url    = new URL(request.url);
-  const orgId  = url.searchParams.get("orgId")  || "default";
+  const orgId  = guard.session.orgId; // authoritative org from session, not the client
   const userId = url.searchParams.get("userId");
   const action = url.searchParams.get("action");
   const status = url.searchParams.get("status");
@@ -68,7 +68,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, userId, employeeId, action, payload, ticketId, notes } = body;
+    const { userId, employeeId, action, payload, ticketId, notes } = body;
 
     if (!action || !["pto", "leave", "info_update"].includes(action)) {
       return NextResponse.json(
@@ -80,7 +80,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing payload object" }, { status: 400 });
     }
 
-    const resolvedOrgId = orgId || "default";
+    const resolvedOrgId = guard.session.orgId; // authoritative org from session
 
     // -- Validate action-specific required fields --
     if (action === "pto" && (!payload.startDate || !payload.endDate)) {
@@ -175,7 +175,7 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, requestId, status, reviewedBy, notes } = body;
+    const { requestId, status, reviewedBy, notes } = body;
 
     if (!requestId || !status) {
       return NextResponse.json({ error: "Missing requestId or status" }, { status: 400 });
@@ -184,7 +184,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "status must be: approved | denied | completed" }, { status: 400 });
     }
 
-    const updated = await updateSelfServiceRequest(orgId || "default", requestId, {
+    const updated = await updateSelfServiceRequest(guard.session.orgId, requestId, {
       status,
       reviewedBy: reviewedBy || null,
       notes:      notes || null,

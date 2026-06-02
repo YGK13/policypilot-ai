@@ -16,7 +16,7 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "demo-org";
+  const orgId = guard.session.orgId; // authoritative org from session, not the client
   const days = parseInt(url.searchParams.get("days") || "30");
 
   try {
