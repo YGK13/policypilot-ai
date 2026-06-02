@@ -69,25 +69,25 @@ export const ROLES = {
   employee: {
     label: "Employee",
     description: "View policies, submit requests, chat with AI",
-    pages: ["/", "/chat", "/self-service", "/tickets", "/documents", "/policies"],
+    pages: ["/", "/dashboard", "/chat", "/self-service", "/tickets", "/documents", "/policies"],
     color: "bg-blue-600",
   },
   hr_staff: {
     label: "HR Staff",
     description: "Handle tickets, manage documents, view analytics",
-    pages: ["/", "/chat", "/self-service", "/tickets", "/documents", "/policies", "/analytics", "/integrations"],
+    pages: ["/", "/dashboard", "/chat", "/self-service", "/tickets", "/documents", "/policies", "/analytics", "/integrations"],
     color: "bg-green-600",
   },
   hr_admin: {
     label: "HR Administrator",
     description: "Full access: cases, team, settings, billing, audit, API keys",
-    pages: ["/", "/chat", "/self-service", "/tickets", "/documents", "/cases", "/integrations", "/policies", "/analytics", "/audit", "/team", "/settings", "/billing", "/api-keys", "/onboarding"],
+    pages: ["/", "/dashboard", "/chat", "/self-service", "/tickets", "/documents", "/cases", "/integrations", "/policies", "/analytics", "/audit", "/team", "/settings", "/billing", "/api-keys", "/onboarding"],
     color: "bg-brand-600",
   },
   legal: {
     label: "Legal Counsel",
     description: "Cases, audit log, policies — read-only on most other pages",
-    pages: ["/", "/cases", "/tickets", "/policies", "/audit", "/documents"],
+    pages: ["/", "/dashboard", "/cases", "/tickets", "/policies", "/audit", "/documents"],
     color: "bg-red-600",
   },
 };
