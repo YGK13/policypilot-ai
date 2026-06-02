@@ -21,8 +21,8 @@ export async function GET(request) {
     return NextResponse.json({ users: [], demo: true });
   }
 
-  const url = new URL(request.url);
-  const orgId = url.searchParams.get("orgId") || "default";
+  // -- org is derived from the authenticated user, never trusted from the client --
+  const orgId = guard.session.orgId;
 
   try {
     const users = await getOrgUsers(orgId);
@@ -48,9 +48,10 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { orgId, user } = body;
+    const { user } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !user?.email || !user?.name) {
-      return NextResponse.json({ error: "Missing orgId, email, or name" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context, email, or name" }, { status: 400 });
     }
 
     const saved = await inviteUser(orgId, user);
@@ -76,9 +77,10 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { orgId, userId, action, role, isActive } = body;
+    const { userId, action, role, isActive } = body;
+    const orgId = guard.session.orgId;
     if (!orgId || !userId) {
-      return NextResponse.json({ error: "Missing orgId or userId" }, { status: 400 });
+      return NextResponse.json({ error: "Missing org context or userId" }, { status: 400 });
     }
 
     let updated;

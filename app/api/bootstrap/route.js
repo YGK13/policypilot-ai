@@ -37,14 +37,21 @@ export async function POST() {
   const hasOrgMembership = (user.organizationMemberships?.length || 0) > 0;
   let assigned = false;
 
-  if (!role && !hasOrgMembership) {
-    role = "hr_admin"; // self-signup = company admin
+  // Each self-signup is a new company: make them admin AND give them their OWN
+  // org (unique slug) for multi-tenant isolation. Invited teammates arrive with
+  // role + orgSlug already set in publicMetadata (via the invite), never overridden.
+  const isSelfSignup = !role && !hasOrgMembership;
+  const orgSlug =
+    user.publicMetadata?.orgSlug || (isSelfSignup ? `org_${userId}` : "default");
+
+  if (isSelfSignup) {
+    role = "hr_admin";
     try {
       await client.users.updateUserMetadata(userId, {
-        publicMetadata: { ...(user.publicMetadata || {}), role },
+        publicMetadata: { ...(user.publicMetadata || {}), role, orgSlug },
       });
       assigned = true;
-      console.log(`[Bootstrap] Assigned hr_admin to self-signup ${userId}`);
+      console.log(`[Bootstrap] Provisioned self-signup ${userId} as hr_admin in ${orgSlug}`);
     } catch (err) {
       console.warn("[Bootstrap] updateUserMetadata failed:", err.message);
     }
@@ -58,8 +65,9 @@ export async function POST() {
       const email = user.emailAddresses?.[0]?.emailAddress || "";
       const name =
         `${user.firstName || ""} ${user.lastName || ""}`.trim() || email;
-      const orgSlug = user.publicMetadata?.orgSlug || "default";
-      const orgName = user.publicMetadata?.orgName || "Default Organization";
+      const orgName =
+        user.publicMetadata?.orgName ||
+        (user.firstName ? `${user.firstName}'s Organization` : "My Organization");
       const plan = user.publicMetadata?.plan || "starter";
 
       const orgs = await sql`
