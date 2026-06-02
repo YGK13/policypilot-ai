@@ -163,8 +163,10 @@ export async function POST(request) {
 // status: "approved" | "denied" | "completed"
 // ============================================================================
 export async function PATCH(request) {
-  // -- HR or admin only --
-  const guard = await requireRole("hr");
+  // -- HR or admin only. NOTE: "hr" is not a valid role — requireRole("hr")
+  //    resolved to index -1 and passed for EVERYONE (incl. employees), letting
+  //    any user approve/deny their own requests. Use hr_staff (the real role). --
+  const guard = await requireRole("hr_staff");
   if (guard.error) return guard.error;
 
   if (!isDbAvailable()) {

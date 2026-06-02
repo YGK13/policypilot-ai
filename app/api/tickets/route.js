@@ -11,6 +11,7 @@ import {
   updateTicketSatisfaction, isDbAvailable, getOrgSettings
 } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
+import { sendEscalationEmail } from "@/lib/email";
 
 export async function GET(request) {
   const guard = await requireRole("employee");
@@ -54,23 +55,20 @@ export async function POST(request) {
 
     const created = await createTicket(orgId, ticket);
 
-    // -- Fire-and-forget escalation email when routing is hr or legal --
+    // -- Fire-and-forget escalation email when routing is hr or legal.
+    //    Direct internal call (not an HTTP hop to a public route) so there is
+    //    no unauthenticated email-send surface. --
     const shouldNotify = ticket.routing === "hr" || ticket.routing === "legal";
     if (shouldNotify && process.env.RESEND_API_KEY) {
       getOrgSettings(orgId).then((settings) => {
         if (!settings.emailEnabled || !settings.supportEmail) return;
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        fetch(`${baseUrl}/api/notify`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticket,
-            toEmail: settings.supportEmail,
-            companyName: settings.companyName,
-            supportEmail: settings.supportEmail,
-          }),
-        }).catch((err) => console.warn("[API] Background op failed:", err.message));
-      }).catch((err) => console.warn("[API] Background op failed:", err.message));
+        return sendEscalationEmail({
+          ticket,
+          toEmail: settings.supportEmail,
+          companyName: settings.companyName,
+          supportEmail: settings.supportEmail,
+        });
+      }).catch((err) => console.warn("[API] escalation email failed:", err.message));
     }
 
     return NextResponse.json({ ticket: created }, { status: 201 });
