@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk ON users(clerk_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+-- Email is unique per org (not globally) — same person can exist in multiple orgs
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_org_email ON users(org_id, email);
 
 -- ============================================================================
 -- TICKETS — AI chat queries that become trackable items
