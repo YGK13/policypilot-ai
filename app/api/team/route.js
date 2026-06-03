@@ -6,9 +6,9 @@
 // ============================================================================
 
 import { NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { isDbAvailable, getOrgUsers, inviteUser, updateUserRole, setUserActive } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
+import { sendInviteEmail } from "@/lib/email";
 
 // ============================================================================
 // GET /api/team?orgId=...
@@ -55,33 +55,23 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing org context, email, or name" }, { status: 400 });
     }
 
-    // -- Persist to DB first so the member appears in the team list immediately --
+    // -- Persist to DB so the member appears in the team list immediately --
     const saved = await inviteUser(orgId, user);
 
-    // -- Send a real Clerk invitation email carrying role + orgSlug in
-    //    publicMetadata. When the invitee accepts and signs up, the bootstrap
-    //    route sees the preset role and skips the auto-admin assignment, placing
-    //    them in the correct org with the correct role. --
+    // -- Send invite notification via Resend (NOT via Clerk invitation API).
+    //    Using Clerk's invitations API caused cross-app contamination: the
+    //    invitation email links to accounts.aihrpilot.com (this app's Clerk
+    //    Account Portal), which broke any other app sharing the same Clerk
+    //    instance (e.g. Career Beast Mode). Resend keeps the email on-domain
+    //    and independent of Clerk instance configuration. --
     const orgSlug = guard.session.orgSlug;
-    if (orgSlug) {
-      try {
-        const client = await clerkClient();
-        await client.invitations.createInvitation({
-          emailAddress: user.email,
-          publicMetadata: {
-            role:    user.role || "employee",
-            orgSlug,
-          },
-          ignoreExisting: true, // don't error if already invited / already has an account
-        });
-        console.log(`[Team] Clerk invite sent to ${user.email} (role=${user.role}, org=${orgSlug})`);
-      } catch (clerkErr) {
-        // -- Non-fatal: user row is already created; log the issue --
-        console.warn("[Team] Clerk invitation failed (user saved to DB):", clerkErr.message);
-      }
-    } else {
-      console.warn("[Team] orgSlug missing from session — Clerk invite skipped for", user.email);
-    }
+    sendInviteEmail({
+      toEmail:  user.email,
+      toName:   user.name,
+      role:     user.role || "employee",
+      orgSlug,
+      invitedBy: guard.session.clerkId,
+    }).catch(err => console.warn("[Team] invite email failed (non-fatal):", err.message));
 
     return NextResponse.json({ saved: true, user: saved });
   } catch (err) {
