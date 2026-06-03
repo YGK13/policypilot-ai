@@ -160,7 +160,7 @@ function TeamContent() {
     } finally {
       setInviting(false);
     }
-  }, [inviteForm, orgId, addAudit, addToast]);
+  }, [inviteForm, addAudit, addToast]);
 
   // -- Change a member's role (optimistic + awaited + rollback on failure) --
   const handleRoleChange = useCallback(async (member, newRole) => {
@@ -186,7 +186,7 @@ function TeamContent() {
       setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, role: prevRole } : m));
       addToast("error", "Role Update Failed", err.message || "Could not save to database");
     }
-  }, [orgId, addAudit, addToast]);
+  }, [addAudit, addToast]);
 
   // -- Deactivate / reactivate a member (optimistic + awaited + rollback on failure) --
   const handleToggleActive = useCallback(async (member) => {
@@ -215,7 +215,7 @@ function TeamContent() {
       setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, isActive: prevActive } : m));
       addToast("error", "Update Failed", err.message || "Could not save to database");
     }
-  }, [orgId, addAudit, addToast]);
+  }, [addAudit, addToast]);
 
   // -- Admin-only guard --
   if (mode === "employee" || mode === "legal") {
