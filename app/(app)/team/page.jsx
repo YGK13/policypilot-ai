@@ -69,7 +69,7 @@ function avatarColor(name) {
 }
 
 function TeamContent() {
-  const { mode, currentUser, orgId, addAudit } = useApp();
+  const { mode, currentUser, addAudit } = useApp();
   const { addToast } = useToast();
 
   // -- Team state: Neon users or empty list --
@@ -91,7 +91,7 @@ function TeamContent() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/team?orgId=${orgId || "default"}`);
+        const res = await fetch("/api/team");
         const data = await res.json();
         if (!data.demo && Array.isArray(data.users) && data.users.length > 0) {
           setMembers(data.users.map(normalizeDbUser));
@@ -103,7 +103,7 @@ function TeamContent() {
       }
     };
     load();
-  }, [orgId]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Filtered view --
   const filtered = members.filter((m) => {
@@ -142,7 +142,7 @@ function TeamContent() {
       const res = await fetch("/api/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: orgId || "default", user: inviteSnapshot }),
+        body: JSON.stringify({ user: inviteSnapshot }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Invite failed");
@@ -152,7 +152,7 @@ function TeamContent() {
         setMembers((prev) => prev.map((m) => m.id === tempId ? normalizeDbUser(data.user) : m));
       }
       addAudit("TEAM_INVITE", `Invited ${inviteSnapshot.name} (${inviteSnapshot.role}) — ${inviteSnapshot.email}`, "info");
-      addToast("success", "Invitation Sent", `${inviteSnapshot.name} will receive an email invite`);
+      addToast("success", "Invitation Sent", `${inviteSnapshot.name} will receive a Clerk invitation email to set up their account`);
     } catch (err) {
       // -- Rollback: remove the optimistic member --
       setMembers((prev) => prev.filter((m) => m.id !== tempId));
@@ -174,7 +174,7 @@ function TeamContent() {
       const res = await fetch("/api/team", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "update_role", role: newRole }),
+        body: JSON.stringify({ userId: member.id, action: "update_role", role: newRole }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Role update failed");
@@ -199,7 +199,7 @@ function TeamContent() {
       const res = await fetch("/api/team", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId: orgId || "default", userId: member.id, action: "set_active", isActive: newActive }),
+        body: JSON.stringify({ userId: member.id, action: "set_active", isActive: newActive }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Status update failed");
@@ -320,7 +320,7 @@ function TeamContent() {
             </button>
           </div>
           <p className="text-[11px] text-gray-400 mt-3">
-            The invited member will receive an email to set up their account. Role and access are applied immediately.
+            A Clerk invitation email is sent to the address above. When the invitee signs up via that link, their role and org are applied automatically.
           </p>
         </div>
       )}
