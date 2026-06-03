@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk ON users(clerk_id);
--- Email is unique per org (not globally) — same person can exist in multiple orgs
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_org_email ON users(org_id, email);
+-- Email unique per org so re-inviting updates rather than duplicating
+-- Note: ALTER TABLE ADD CONSTRAINT is handled by the migration step in /api/setup
 
 -- ============================================================================
 -- TICKETS — AI chat queries that become trackable items
