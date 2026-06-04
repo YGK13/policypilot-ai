@@ -98,6 +98,9 @@ function SystemStatus() {
   const needsDbInit = setup?.needsSetup && services?.database?.ok === false && !!process.env.DATABASE_URL;
   const allGood = services?.database?.ok && services?.llm?.ok && services?.clerk?.ok;
 
+  // -- Hide entirely when everything is green — no reason to show this to real customers --
+  if (allGood && !needsDbInit) return null;
+
   return (
     <div className={`mb-6 rounded-xl border p-4 ${allGood ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
       <div className="flex items-center justify-between mb-3">

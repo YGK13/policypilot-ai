@@ -598,7 +598,7 @@ export default function AppShell({ children }) {
             <Topbar
               currentUser={currentUser}
               employee={employee}
-              employees={isAdmin ? DEMO_EMPLOYEES : []}
+              employees={!CLERK_ENABLED && isAdmin ? DEMO_EMPLOYEES : []}
               onEmployeeChange={(id) =>
                 setEmployee(DEMO_EMPLOYEES.find((e) => e.id === id))
               }
