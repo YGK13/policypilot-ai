@@ -1,75 +1,88 @@
 import Link from "next/link";
+import { Crimson_Pro, IBM_Plex_Mono } from "next/font/google";
 
 // ============================================================================
-// PUBLIC LANDING PAGE — Marketing homepage for AI HR Pilot
-// Server component. No auth required. No AppShell.
-// This replaces the login wall as the first thing visitors see.
-// Authenticated users see the "Go to Dashboard" button instead of "Start Free Trial"
+// PUBLIC LANDING PAGE — AI HR Pilot marketing homepage
+// "The Protocol" brand direction: light/cream, forest + brass, serif authority.
+// Server component. No auth. Left-aligned, institutional, compliance-first.
 // ============================================================================
+
+const crimson = Crimson_Pro({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
 
 export const metadata = {
-  title: "AI HR Pilot | AI-Powered HR Chatbot for Teams of 50-500",
+  title: "AI HR Pilot | Compliance Intelligence for Enterprise HR",
   description:
-    "AI-powered HR chatbot that answers employee questions in seconds with policy citations. Built by a 3x CHRO. Deploys in 2 hours. Starts at $99/month.",
+    "AI-powered HR policy intelligence that cites every source, flags ADA/FMLA/harassment risk, and routes sensitive cases to the right human. Built by a 3x CHRO with a law degree.",
   keywords:
-    "hr chatbot, ai hr assistant, employee self service chatbot, hr policy chatbot, hr automation",
+    "hr compliance ai, hr policy intelligence, hris ai, employee relations ai, fmla ada compliance software, hr automation enterprise",
   openGraph: {
-    title: "AI HR Pilot | Your HR Team's AI Co-Pilot",
+    title: "AI HR Pilot | The compliance standard for enterprise HR",
     description:
-      "Answers employee questions in seconds, not days. Built by a 3x CHRO with a law degree.",
+      "Cited answers. Routed escalations. Zero guesswork. Built by a 3x CHRO, J.D.",
     url: "https://aihrpilot.com",
     type: "website",
   },
 };
 
 // ============================================================================
-// DATA — Features, pricing, testimonials, FAQ defined as arrays
+// CONTENT
 // ============================================================================
 
-const FEATURES = [
+const CAPABILITIES = [
   {
-    icon: "📋",
+    k: "01",
     title: "Policy Intelligence",
-    desc: "Answers from YOUR handbook, not generic AI. Every response cites the specific policy section.",
+    desc: "Every answer is grounded in YOUR handbook and cites the exact section — not generic AI guesswork. Defensible by design.",
   },
   {
-    icon: "🔀",
-    title: "Smart Triage",
-    desc: "Classifies tickets by urgency, topic, and compliance sensitivity. Routes to the right person.",
+    k: "02",
+    title: "Risk Detection",
+    desc: "Automatically flags ADA, FMLA, harassment, and discrimination exposure before a wrong answer becomes a six-figure liability.",
   },
   {
-    icon: "🛡️",
-    title: "Compliance Guardrails",
-    desc: "Built by a CHRO with a law degree. Flags legally sensitive topics before they become problems.",
+    k: "03",
+    title: "Intelligent Routing",
+    desc: "Low-confidence and legally sensitive matters escalate to the right human — with full context attached, never lost in a queue.",
   },
   {
-    icon: "💬",
+    k: "04",
+    title: "Audit Trail",
+    desc: "Every query, citation, and routing decision is logged and exportable. When a regulator or counsel asks, you have the record.",
+  },
+  {
+    k: "05",
+    title: "50-State Jurisdiction",
+    desc: "Answers adapt to the employee's state — CFRA in California, PDL, state pay-transparency law — not one-size-fits-all federal.",
+  },
+  {
+    k: "06",
     title: "Multi-Channel",
-    desc: "Slack, Teams, email, or embedded widget. Meets employees where they are.",
-  },
-  {
-    icon: "📊",
-    title: "Analytics Dashboard",
-    desc: "See what employees ask most. Identify policy gaps. Measure resolution time.",
-  },
-  {
-    icon: "🚀",
-    title: "Onboarding Accelerator",
-    desc: "New hires get instant answers from Day 1. Reduces HR onboarding load by 40%.",
+    desc: "Meets employees in Slack, Teams, email, or an embedded widget. One policy brain, every channel your workforce already uses.",
   },
 ];
 
 const PRICING = [
   {
     tier: "Starter",
-    price: "$99",
-    period: "/month",
-    employees: "Up to 100",
+    price: "$299",
+    period: "per month",
+    employees: "Up to 100 employees",
     features: [
+      "Policy intelligence engine",
       "10 policy documents",
-      "Web widget channel",
-      "Basic triage routing",
-      "Basic analytics",
+      "Web + email channel",
+      "Federal jurisdiction",
+      "Audit trail & exports",
       "Email support",
     ],
     cta: "Start Free Trial",
@@ -77,32 +90,34 @@ const PRICING = [
   },
   {
     tier: "Professional",
-    price: "$349",
-    period: "/month",
-    employees: "Up to 500",
+    price: "$799",
+    period: "per month",
+    employees: "Up to 500 employees",
     features: [
-      "50 policy documents",
-      "Slack + Teams + web widget",
-      "Advanced triage routing",
-      "Full analytics + reports",
-      "FMLA, ADA compliance flags",
-      "Priority email support",
+      "Everything in Starter, plus —",
+      "Unlimited documents",
+      "Slack + Teams + web",
+      "50-state jurisdiction engine",
+      "ADA / FMLA / harassment risk flags",
+      "Advanced analytics & reporting",
+      "Priority support",
     ],
     cta: "Start Free Trial",
     featured: true,
   },
   {
     tier: "Enterprise",
-    price: "$999",
-    period: "/month",
+    price: "Custom",
+    period: "annual",
     employees: "Unlimited",
     features: [
-      "Unlimited documents",
-      "All channels + email + API",
-      "Custom triage workflows",
-      "Custom reports + exports",
+      "Everything in Professional, plus —",
+      "SSO (Okta, Azure AD, Google)",
+      "HRIS / ATS integrations",
       "Custom compliance rules",
-      "Dedicated CSM",
+      "Dedicated CSM + SLA",
+      "White-label option",
+      "SOC 2 report on request",
     ],
     cta: "Contact Sales",
     featured: false,
@@ -112,429 +127,391 @@ const PRICING = [
 const TESTIMONIALS = [
   {
     quote:
-      "We went from 200+ Slack DMs per week to under 30. AI HR Pilot handles the rest with better accuracy than our wiki ever did.",
-    author: "HR Director",
+      "We went from 200+ Slack DMs a week to under 30 — and every answer that goes out is one I'd defend in front of counsel.",
+    author: "VP, People",
     company: "250-person SaaS company",
   },
   {
     quote:
-      "The compliance flagging alone is worth the price. It caught a potential ADA issue we would have missed.",
-    author: "VP People",
-    company: "Healthcare startup",
+      "The risk flagging alone paid for itself. It caught an ADA accommodation issue our team would have answered wrong.",
+    author: "Chief People Officer",
+    company: "Healthcare, 400 employees",
   },
   {
     quote:
-      "I manage HR for 3 portfolio companies. AI HR Pilot is deployed across all of them. Best $1K/month I spend.",
-    author: "Fractional CHRO",
-    company: "3 portfolio companies",
+      "I run HR across three portfolio companies. It's deployed at all of them. The audit trail is what sold our GC.",
+    author: "Operating Partner",
+    company: "Private equity firm",
   },
+];
+
+const CREDENTIALS = [
+  "3× CHRO",
+  "JD, Cardozo Law",
+  "BA, UPenn",
+  "AI Trainer — Meta, Microsoft, OpenAI",
+  "2,300+ executives coached",
+  "Top 5 Global HR Thought Leader",
 ];
 
 const FAQS = [
   {
+    q: "How is this different from a generic AI chatbot?",
+    a: "A generic chatbot generates plausible-sounding answers. AI HR Pilot grounds every response in your actual policies, cites the section, attaches a confidence score, and refuses to guess on legally sensitive matters — it routes those to a human instead.",
+  },
+  {
     q: "How long does setup take?",
-    a: "Most teams are live in under 2 hours. Upload your handbook, configure your channels, done.",
+    a: "Most teams are live in under two hours. Upload your handbook and policy documents, set your jurisdictions, configure routing rules — done. No three-month implementation.",
   },
   {
-    q: "Is my data secure?",
-    a: "SOC 2 Type II certified. 256-bit AES encryption. Your data never trains our models.",
+    q: "What happens with high-risk questions like harassment or FMLA?",
+    a: "These are detected automatically and never answered by AI alone. They escalate to your designated human reviewer with the full query, context, and relevant citations attached — and the entire chain is logged.",
   },
   {
-    q: "What if the AI gives a wrong answer?",
-    a: "Every response includes a confidence score and policy citation. Low-confidence answers auto-escalate to a human.",
+    q: "Is my data secure, and is it used to train models?",
+    a: "Your data is never used to train any model. SOC 2 Type II controls, encryption in transit and at rest, and strict per-organization data isolation.",
   },
   {
-    q: "Can I customize the responses?",
-    a: "Yes. You set the tone, approved language, and escalation rules. The AI follows your playbook.",
-  },
-  {
-    q: "What about sensitive topics?",
-    a: "Built-in compliance guardrails flag harassment, discrimination, ADA, FMLA, and other legally sensitive topics before responding.",
+    q: "Who built this?",
+    a: "AI HR Pilot was built by a 3× Chief HR Officer with a law degree from Cardozo — someone who has conducted thousands of employee relations meetings, not engineers who've never sat in one.",
   },
 ];
 
 // ============================================================================
-// STYLES — Inline styles object for the landing page
-// Dark theme with blue accent matching AI HR Pilot brand
+// PALETTE
 // ============================================================================
-
-const S = {
-  page: {
-    background: "#09090b",
-    color: "#e4e4e7",
-    fontFamily: "var(--font-inter), system-ui, sans-serif",
-    lineHeight: 1.6,
-    minHeight: "100vh",
-  },
-  nav: {
-    position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-    background: "rgba(9,9,11,0.92)", backdropFilter: "blur(12px)",
-    borderBottom: "1px solid #27272a",
-  },
-  navInner: {
-    maxWidth: 1100, margin: "0 auto", padding: "0 24px",
-    display: "flex", alignItems: "center", justifyContent: "space-between", height: 64,
-  },
-  brand: {
-    display: "flex", alignItems: "center", gap: 10,
-    fontWeight: 700, fontSize: 18, color: "#e4e4e7", textDecoration: "none",
-  },
-  brandIcon: {
-    width: 32, height: 32, background: "#3b82f6", borderRadius: 8,
-    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-  },
-  navLinks: {
-    listStyle: "none", display: "flex", gap: 28, padding: 0, margin: 0,
-  },
-  navLink: { color: "#8b8fa3", fontSize: 14, fontWeight: 500, textDecoration: "none" },
-  container: { maxWidth: 1100, margin: "0 auto", padding: "0 24px" },
-  section: { padding: "100px 0" },
-  sectionAlt: { padding: "100px 0", background: "#111113" },
-  label: {
-    display: "inline-block", fontSize: 13, fontWeight: 600,
-    textTransform: "uppercase", letterSpacing: 2, color: "#3b82f6", marginBottom: 16,
-  },
-  h1: {
-    fontSize: "clamp(36px, 5.5vw, 56px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 24,
-  },
-  h2: {
-    fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 800, lineHeight: 1.15, marginBottom: 20,
-  },
-  gradient: {
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #60a5fa 100%)",
-    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-  },
-  subhead: {
-    fontSize: 18, color: "#8b8fa3", maxWidth: 640, margin: "0 auto 36px", lineHeight: 1.7,
-  },
-  btn: {
-    display: "inline-flex", alignItems: "center", gap: 8,
-    padding: "16px 32px", borderRadius: 8, fontWeight: 600, fontSize: 16,
-    textDecoration: "none", cursor: "pointer", border: "none",
-  },
-  btnPrimary: { background: "#3b82f6", color: "#fff" },
-  btnSecondary: { background: "transparent", color: "#e4e4e7", border: "1px solid #27272a" },
-  grid: {
-    display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24,
-  },
-  card: {
-    background: "#09090b", border: "1px solid #27272a", borderRadius: 12, padding: 32,
-  },
-  cardHover: {
-    background: "#111113", border: "1px solid #27272a", borderRadius: 12, padding: 32,
-  },
-  muted: { color: "#8b8fa3", fontSize: 15 },
-  badge: {
-    background: "#111113", border: "1px solid #27272a", borderRadius: 8,
-    padding: "8px 16px", fontSize: 13, fontWeight: 500,
-  },
-  // Pricing
-  pricingCard: {
-    background: "#09090b", border: "1px solid #27272a", borderRadius: 16, padding: 36,
-  },
-  pricingFeatured: {
-    background: "#09090b", border: "2px solid #3b82f6", borderRadius: 16, padding: 36,
-    position: "relative",
-  },
-  pricingPrice: { fontFamily: "monospace", fontSize: 42, fontWeight: 700 },
-  // Testimonial
-  testimonialCard: {
-    background: "#111113", border: "1px solid #27272a", borderRadius: 12, padding: 32,
-  },
+const C = {
+  forest: "#1A3D2B",
+  deep: "#13301F",
+  brass: "#B8963E",
+  brassSoft: "#C9A85A",
+  cream: "#F5F0E8",
+  linen: "#EDE7DA",
+  card: "#FBF8F2",
+  slate: "#6E7E72",
+  line: "#DED7C7",
+  inkOnDark: "#EAE4D6",
 };
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+const serif = `${crimson.style.fontFamily}, Georgia, serif`;
+const monoF = `${mono.style.fontFamily}, ui-monospace, monospace`;
+const sans = `var(--font-inter), system-ui, -apple-system, sans-serif`;
+
+const S = {
+  page: { background: C.cream, color: C.forest, fontFamily: sans, lineHeight: 1.6, minHeight: "100vh", overflowX: "hidden" },
+  container: { maxWidth: 1160, margin: "0 auto", padding: "0 28px" },
+
+  nav: {
+    position: "sticky", top: 0, zIndex: 100,
+    background: "rgba(245,240,232,0.85)", backdropFilter: "blur(14px)",
+    borderBottom: `1px solid ${C.line}`,
+  },
+  navInner: { maxWidth: 1160, margin: "0 auto", padding: "0 28px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" },
+  brand: { display: "flex", alignItems: "center", gap: 11, textDecoration: "none", color: C.forest },
+  brandName: { fontFamily: serif, fontWeight: 600, fontSize: 21, letterSpacing: "-0.01em" },
+  navLinks: { listStyle: "none", display: "flex", gap: 30, padding: 0, margin: 0 },
+  navLink: { color: C.slate, fontSize: 13.5, fontWeight: 500, textDecoration: "none", letterSpacing: "0.01em" },
+
+  eyebrow: { fontFamily: monoF, fontSize: 12, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: C.brass },
+  h1: { fontFamily: serif, fontSize: "clamp(40px, 5.4vw, 66px)", fontWeight: 600, lineHeight: 1.04, letterSpacing: "-0.02em", color: C.forest, margin: "22px 0 0" },
+  h2: { fontFamily: serif, fontSize: "clamp(30px, 3.6vw, 44px)", fontWeight: 600, lineHeight: 1.1, letterSpacing: "-0.015em", color: C.forest, margin: 0 },
+  lede: { fontSize: 18.5, color: C.slate, lineHeight: 1.65, maxWidth: 540 },
+
+  btnPrimary: { display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 26px", borderRadius: 8, fontWeight: 600, fontSize: 15, textDecoration: "none", background: C.forest, color: C.cream, border: `1px solid ${C.forest}` },
+  btnGhost: { display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 26px", borderRadius: 8, fontWeight: 600, fontSize: 15, textDecoration: "none", background: "transparent", color: C.forest, border: `1px solid ${C.forest}` },
+  btnSmall: { padding: "9px 18px", fontSize: 13.5, borderRadius: 7 },
+
+  sectionLabel: { fontFamily: monoF, fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase", color: C.brass, fontWeight: 500 },
+  muted: { color: C.slate, fontSize: 16, lineHeight: 1.7 },
+};
+
+// Inline SVG mark — abstract "P" inside a compliance bracket
+function Mark({ size = 34 }) {
+  return (
+    <span style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", background: C.forest, borderRadius: 8, flexShrink: 0 }}>
+      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        {/* bracket */}
+        <path d="M6 3 H4 V21 H6" stroke={C.brass} strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M18 3 H20 V21 H18" stroke={C.brass} strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {/* P */}
+        <path d="M9 19 V6 H13.2 a3.4 3.4 0 0 1 0 6.8 H9" stroke={C.cream} strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
 
 export default function LandingPage() {
   return (
     <div style={S.page}>
-      {/* ============ NAVIGATION ============ */}
+      {/* ===================== NAV ===================== */}
       <nav style={S.nav}>
         <div style={S.navInner}>
-          <a href="#" style={S.brand}>
-            <span style={S.brandIcon}>⚡</span>
-            AI HR Pilot
-          </a>
+          <Link href="/" style={S.brand}>
+            <Mark />
+            <span style={S.brandName}>AI HR Pilot</span>
+          </Link>
           <ul style={S.navLinks}>
-            <li><a href="#problem" style={S.navLink}>Problem</a></li>
-            <li><a href="#solution" style={S.navLink}>How It Works</a></li>
-            <li><a href="#features" style={S.navLink}>Features</a></li>
+            <li><a href="#platform" style={S.navLink}>Platform</a></li>
+            <li><a href="#why" style={S.navLink}>Why Different</a></li>
             <li><a href="#pricing" style={S.navLink}>Pricing</a></li>
             <li><a href="#faq" style={S.navLink}>FAQ</a></li>
           </ul>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <Link href="/sign-in" style={{ ...S.btn, ...S.btnSecondary, padding: "10px 20px", fontSize: 14 }}>
-              Log In
-            </Link>
-            <a href="#final-cta" style={{ ...S.btn, ...S.btnPrimary, padding: "10px 20px", fontSize: 14 }}>
-              Start Free Trial
-            </a>
+            <Link href="/sign-in" style={{ ...S.navLink, fontWeight: 600 }}>Sign in</Link>
+            <Link href="/sign-up" style={{ ...S.btnPrimary, ...S.btnSmall }}>Request Demo</Link>
           </div>
         </div>
       </nav>
 
-      {/* ============ HERO ============ */}
-      <section style={{ ...S.section, paddingTop: 140, textAlign: "center", position: "relative" }}>
-        <div style={S.container}>
-          <span style={S.label}>Enterprise HR Intelligence Platform</span>
-          <h1 style={S.h1}>
-            Your HR Team&apos;s AI Co-Pilot.
-            <br />
-            <span style={S.gradient}>Answers Employee Questions in Seconds, Not Days.</span>
-          </h1>
-          <p style={S.subhead}>
-            AI-powered HR chatbot that knows your policies, routes complex issues to
-            the right team, and keeps you compliant. Built by a 3x CHRO, not just engineers.
-          </p>
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
-            <Link href="/sign-up" style={{ ...S.btn, ...S.btnPrimary }}>
-              Start Free Trial →
-            </Link>
-            <a href="#solution" style={{ ...S.btn, ...S.btnSecondary }}>
-              See How It Works
-            </a>
-          </div>
-          <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
-            <span style={S.badge}>🔒 SOC 2 Type II</span>
-            <span style={S.badge}>🔐 256-bit AES Encryption</span>
-            <span style={S.badge}>🌍 GDPR Compliant</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ============ PROBLEM ============ */}
-      <section id="problem" style={S.sectionAlt}>
-        <div style={S.container}>
-          <div style={{ textAlign: "center", maxWidth: 700, margin: "0 auto 60px" }}>
-            <span style={S.label}>The Problem</span>
-            <h2 style={S.h2}>
-              Your HR team spends 60% of their time answering the{" "}
-              <span style={S.gradient}>same questions.</span>
-            </h2>
-            <p style={S.muted}>
-              The average HR department handles 1,200+ employee inquiries per month.
-              73% are repetitive questions with documented answers. (SHRM, 2026)
+      {/* ===================== HERO ===================== */}
+      <section style={{ ...S.container, paddingTop: 88, paddingBottom: 64 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 56, alignItems: "center" }}>
+          {/* Left — copy */}
+          <div>
+            <span style={S.eyebrow}>Compliance Intelligence · Built by a 3× CHRO, J.D.</span>
+            <h1 style={S.h1}>
+              Resolve 90% of HR<br />questions instantly —<br />
+              <span style={{ color: C.brass }}>with answers you can defend.</span>
+            </h1>
+            <p style={{ ...S.lede, marginTop: 26 }}>
+              AI policy intelligence that cites every source, flags ADA, FMLA and
+              harassment risk, and routes sensitive cases to the right human —
+              automatically. Built for operators who can&apos;t afford a wrong answer.
             </p>
+            <div style={{ display: "flex", gap: 14, marginTop: 34, flexWrap: "wrap" }}>
+              <Link href="/sign-up" style={S.btnPrimary}>Start Free Trial →</Link>
+              <a href="#platform" style={S.btnGhost}>See how it works</a>
+            </div>
+            <div style={{ display: "flex", gap: 22, marginTop: 30, flexWrap: "wrap", fontFamily: monoF, fontSize: 12.5, color: C.slate, letterSpacing: "0.03em" }}>
+              <span>SOC 2 Type II</span><span style={{ color: C.line }}>·</span>
+              <span>Zero data training</span><span style={{ color: C.line }}>·</span>
+              <span>Live in 2 hours</span>
+            </div>
           </div>
-          <div style={S.grid}>
-            {[
-              { icon: "📥", title: "Tier 1 tickets consume your best people", desc: "PTO balances, benefits questions, policy lookups — your senior HR talent shouldn't be a human search engine." },
-              { icon: "⚠️", title: "Compliance risk grows with every verbal answer", desc: "Inconsistent responses across your team create legal exposure. One wrong answer on ADA or FMLA can cost six figures." },
-              { icon: "⏳", title: "New hires wait days for answers that should take seconds", desc: "Onboarding bottlenecks kill engagement. 20% of new hire turnover happens in the first 45 days." },
-            ].map((p, i) => (
-              <div key={i} style={S.card}>
-                <div style={{ fontSize: 28, marginBottom: 16 }}>{p.icon}</div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>{p.title}</h3>
-                <p style={S.muted}>{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ============ HOW IT WORKS ============ */}
-      <section id="solution" style={S.section}>
-        <div style={{ ...S.container, textAlign: "center" }}>
-          <span style={S.label}>How It Works</span>
-          <h2 style={S.h2}>
-            Three steps to <span style={S.gradient}>silence the Slack DMs.</span>
-          </h2>
-          <div style={{ ...S.grid, marginTop: 60 }}>
-            {[
-              { num: "1", title: "Upload Your Policies", desc: "Upload your handbook, benefits docs, and compliance materials. AI indexes everything in minutes." },
-              { num: "2", title: "Deploy Your AI HR Agent", desc: "Employees ask questions via chat. AI provides instant, policy-accurate answers with citations." },
-              { num: "3", title: "Route What Needs a Human", desc: "Complex issues (harassment, ADA, FMLA) auto-escalate to the right HR team member with full context." },
-            ].map((s, i) => (
-              <div key={i} style={{ textAlign: "center", padding: 32 }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: "50%",
-                  background: "rgba(59,130,246,0.15)", border: "2px solid #3b82f6",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "monospace", fontWeight: 700, fontSize: 18, color: "#3b82f6",
-                  margin: "0 auto 20px",
-                }}>{s.num}</div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>{s.title}</h3>
-                <p style={S.muted}>{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ FEATURES ============ */}
-      <section id="features" style={S.sectionAlt}>
-        <div style={S.container}>
-          <div style={{ textAlign: "center", maxWidth: 700, margin: "0 auto 60px" }}>
-            <span style={S.label}>Features</span>
-            <h2 style={S.h2}>
-              Built by a CHRO. <span style={S.gradient}>Not just engineers.</span>
-            </h2>
-          </div>
-          <div style={S.grid}>
-            {FEATURES.map((f, i) => (
-              <div key={i} style={S.cardHover}>
-                <div style={{ fontSize: 28, marginBottom: 16 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
-                <p style={{ ...S.muted, fontSize: 14 }}>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ TESTIMONIALS ============ */}
-      <section style={S.section}>
-        <div style={{ ...S.container, textAlign: "center" }}>
-          <span style={S.label}>What HR Leaders Say</span>
-          <h2 style={S.h2}>
-            Trusted by <span style={S.gradient}>growing teams.</span>
-          </h2>
-          <div style={{ ...S.grid, marginTop: 60 }}>
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} style={S.testimonialCard}>
-                <p style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{t.author}</div>
-                <div style={{ fontSize: 13, color: "#8b8fa3" }}>{t.company}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ PRICING ============ */}
-      <section id="pricing" style={S.sectionAlt}>
-        <div style={{ ...S.container, textAlign: "center" }}>
-          <span style={S.label}>Pricing</span>
-          <h2 style={S.h2}>
-            Less than the cost of <span style={S.gradient}>one HR coordinator&apos;s week.</span>
-          </h2>
-          <p style={{ ...S.muted, marginTop: 8 }}>All plans include 7-day free trial. No credit card required.</p>
-          <div style={{ ...S.grid, marginTop: 60 }}>
-            {PRICING.map((p, i) => (
-              <div key={i} style={p.featured ? S.pricingFeatured : S.pricingCard}>
-                {p.featured && (
-                  <div style={{
-                    position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
-                    background: "#3b82f6", color: "#fff", fontSize: 11, fontWeight: 700,
-                    letterSpacing: 1, padding: "4px 16px", borderRadius: 20,
-                  }}>MOST POPULAR</div>
-                )}
-                <div style={{ fontSize: 14, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, color: "#3b82f6", marginBottom: 8 }}>
-                  {p.tier}
-                </div>
-                <div style={S.pricingPrice}>{p.price}</div>
-                <div style={{ fontSize: 14, color: "#8b8fa3", marginBottom: 4 }}>{p.period}</div>
-                <div style={{ fontSize: 13, color: "#8b8fa3", marginBottom: 24 }}>{p.employees} employees</div>
-                <ul style={{ listStyle: "none", padding: 0, marginBottom: 32, textAlign: "left" }}>
-                  {p.features.map((f, j) => (
-                    <li key={j} style={{ padding: "8px 0", fontSize: 14, color: "#8b8fa3", display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={p.tier === "Enterprise" ? "#final-cta" : "/sign-up"}
-                  style={{
-                    ...S.btn,
-                    ...(p.featured ? S.btnPrimary : S.btnSecondary),
-                    display: "block", width: "100%", textAlign: "center",
-                  }}
-                >
-                  {p.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ BUILDER CREDIBILITY ============ */}
-      <section style={S.section}>
-        <div style={S.container}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
-            <div>
-              <span style={S.label}>Why AI HR Pilot</span>
-              <h2 style={S.h2}>
-                Built by a CHRO,<br /><span style={S.gradient}>not just engineers.</span>
-              </h2>
-              <p style={{ ...S.muted, fontSize: 16, lineHeight: 1.7, marginTop: 16 }}>
-                Every HR chatbot on the market was built by engineers who&apos;ve never sat in
-                an employee relations meeting. AI HR Pilot was built by someone who&apos;s
-                conducted thousands of them.
-              </p>
-              <p style={{ ...S.muted, fontSize: 16, lineHeight: 1.7, marginTop: 12 }}>
-                The compliance guardrails aren&apos;t an afterthought — they&apos;re the
-                architecture. Because when an employee asks about harassment, the last thing
-                you want is an AI making up an answer.
+          {/* Right — product answer card */}
+          <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 26, boxShadow: "0 24px 60px -28px rgba(26,61,43,0.30)", position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: monoF, fontSize: 11, color: C.slate, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 18 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3FA56A" }} /> AI HR Pilot · live
+            </div>
+            <div style={{ fontFamily: serif, fontSize: 19, color: C.forest, lineHeight: 1.4, marginBottom: 16 }}>
+              &ldquo;Is Sarah eligible for FMLA leave?&rdquo;
+            </div>
+            <div style={{ borderLeft: `3px solid ${C.forest}`, paddingLeft: 16, marginBottom: 18 }}>
+              <p style={{ fontSize: 15, color: C.forest, lineHeight: 1.65, margin: 0 }}>
+                Yes — Sarah meets the 12-month / 1,250-hour threshold. Entitlement:
+                12 weeks unpaid, job-protected leave per 12-month period.
               </p>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {[
-                "3x CHRO", "JD, Cardozo Law", "BA, UPenn",
-                "AI Trainer: Meta, Microsoft, OpenAI",
-                "2,300+ Executives Coached",
-                "Top 5 Global HR Thought Leader",
-                "Featured: Forbes, HBR, Fast Company",
-              ].map((c, i) => (
-                <span key={i} style={S.badge}>{c}</span>
+            <div style={{ fontFamily: monoF, fontSize: 12, color: C.slate, lineHeight: 1.9, background: C.linen, borderRadius: 8, padding: "12px 14px" }}>
+              <div><span style={{ color: C.brass }}>cite:</span> 29 C.F.R. § 825.110</div>
+              <div><span style={{ color: C.brass }}>source:</span> FMLA &amp; Leave Policy v3.2</div>
+              <div><span style={{ color: C.brass }}>confidence:</span> 94%</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+              {["CITED", "AUDITABLE", "AUTO-RESOLVED"].map((t) => (
+                <span key={t} style={{ fontFamily: monoF, fontSize: 10.5, letterSpacing: "0.08em", color: C.forest, border: `1px solid ${C.brass}`, borderRadius: 5, padding: "4px 9px" }}>{t}</span>
               ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ============ FAQ ============ */}
-      <section id="faq" style={S.sectionAlt}>
-        <div style={{ ...S.container, textAlign: "center" }}>
-          <span style={S.label}>FAQ</span>
-          <h2 style={S.h2}>Common questions.</h2>
-          <div style={{ maxWidth: 700, margin: "48px auto 0", textAlign: "left" }}>
-            {FAQS.map((f, i) => (
-              <div key={i} style={{ borderBottom: "1px solid #27272a", padding: "24px 0" }}>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{f.q}</div>
-                <p style={{ ...S.muted, lineHeight: 1.7 }}>{f.a}</p>
+      {/* ===================== LOGO / METRIC STRIP ===================== */}
+      <section style={{ background: C.linen, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ ...S.container, padding: "32px 28px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, textAlign: "center" }}>
+          {[
+            ["73%", "of HR inquiries are repetitive, documented questions"],
+            ["1,200+", "average monthly inquiries at a 200-person company"],
+            ["6 figures", "the cost of one wrong answer on ADA or FMLA"],
+          ].map(([n, l]) => (
+            <div key={n}>
+              <div style={{ fontFamily: serif, fontSize: 34, fontWeight: 600, color: C.forest }}>{n}</div>
+              <div style={{ ...S.muted, fontSize: 13.5, marginTop: 4 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================== PLATFORM / CAPABILITIES ===================== */}
+      <section id="platform" style={{ ...S.container, padding: "96px 28px" }}>
+        <div style={{ maxWidth: 640, marginBottom: 56 }}>
+          <span style={S.sectionLabel}>The Platform</span>
+          <h2 style={{ ...S.h2, marginTop: 14 }}>An HR brain that knows the law — and knows its limits.</h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 1, background: C.line, border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden" }}>
+          {CAPABILITIES.map((c) => (
+            <div key={c.k} style={{ background: C.cream, padding: "30px 28px" }}>
+              <div style={{ fontFamily: monoF, fontSize: 12, color: C.brass, letterSpacing: "0.1em", marginBottom: 14 }}>{c.k}</div>
+              <h3 style={{ fontFamily: serif, fontSize: 21, fontWeight: 600, color: C.forest, margin: "0 0 10px" }}>{c.title}</h3>
+              <p style={{ ...S.muted, fontSize: 14.5 }}>{c.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================== HOW IT WORKS ===================== */}
+      <section style={{ background: C.linen, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ ...S.container, padding: "96px 28px" }}>
+          <div style={{ maxWidth: 640, marginBottom: 56 }}>
+            <span style={S.sectionLabel}>How It Works</span>
+            <h2 style={{ ...S.h2, marginTop: 14 }}>Three steps. Two hours. Zero implementation team.</h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 36 }}>
+            {[
+              ["Ingest", "Upload your handbook, benefits docs and policies. The engine indexes and maps them to jurisdiction and topic in minutes."],
+              ["Deploy", "Employees ask in plain language across Slack, Teams, email or web. Every answer arrives cited, scored and jurisdiction-aware."],
+              ["Route & Prove", "Sensitive matters escalate to the right human with full context. Every decision is logged for audit, counsel and the board."],
+            ].map(([t, d], i) => (
+              <div key={t}>
+                <div style={{ fontFamily: monoF, fontSize: 13, color: C.brass, borderTop: `2px solid ${C.brass}`, paddingTop: 14, marginBottom: 14, letterSpacing: "0.06em" }}>
+                  STEP {i + 1}
+                </div>
+                <h3 style={{ fontFamily: serif, fontSize: 23, fontWeight: 600, color: C.forest, margin: "0 0 10px" }}>{t}</h3>
+                <p style={S.muted}>{d}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ============ FINAL CTA ============ */}
-      <section id="final-cta" style={{ textAlign: "center", padding: "100px 0" }}>
-        <div style={S.container}>
-          <h2 style={S.h2}>
-            Stop Drowning in Tier 1 Tickets.
-            <br />
-            <span style={S.gradient}>Start Your Free Trial.</span>
-          </h2>
-          <p style={{ ...S.muted, fontSize: 17, marginBottom: 32 }}>
-            No credit card required. Live in under 2 hours.
-          </p>
-          <Link href="/sign-up" style={{ ...S.btn, ...S.btnPrimary }}>
-            Get Started Free →
-          </Link>
-          <p style={{ fontSize: 13, color: "#8b8fa3", marginTop: 16 }}>
-            Join growing teams who answer employee questions with AI, not Slack DMs.
-          </p>
+      {/* ===================== WHY DIFFERENT / CREDIBILITY ===================== */}
+      <section id="why" style={{ ...S.container, padding: "96px 28px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div>
+            <span style={S.sectionLabel}>Why It&apos;s Different</span>
+            <h2 style={{ ...S.h2, marginTop: 14 }}>Built by someone who&apos;s sat in the room.</h2>
+            <p style={{ ...S.muted, fontSize: 17, marginTop: 18 }}>
+              Every other HR chatbot was built by engineers who&apos;ve never sat across
+              from an employee in crisis. This one was built by a 3× CHRO with a law
+              degree who has conducted thousands of those conversations.
+            </p>
+            <p style={{ ...S.muted, fontSize: 17, marginTop: 14 }}>
+              The compliance guardrails aren&apos;t a feature bolted on at the end —
+              they&apos;re the architecture. When an employee asks about harassment, the
+              last thing you want is an AI confidently making something up.
+            </p>
+            <p style={{ fontFamily: serif, fontStyle: "italic", fontSize: 18, color: C.forest, marginTop: 22 }}>
+              &ldquo;The compliance standard for enterprise HR.&rdquo;
+            </p>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignContent: "flex-start" }}>
+            {CREDENTIALS.map((c) => (
+              <span key={c} style={{ fontSize: 13.5, fontWeight: 500, color: C.forest, background: C.card, border: `1px solid ${C.line}`, borderRadius: 999, padding: "9px 16px" }}>{c}</span>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ============ FOOTER ============ */}
-      <footer style={{ padding: "40px 0", borderTop: "1px solid #27272a", textAlign: "center" }}>
-        <p style={{ fontSize: 13, color: "#8b8fa3" }}>
-          &copy; 2026 AI HR Pilot by Portfolio Leverage Co. All rights reserved.
-          {" | "}
-          <a href="mailto:yuri.kruman@gmail.com" style={{ color: "#3b82f6" }}>Contact</a>
-          {" | "}
-          <a href="https://portlev.com" style={{ color: "#3b82f6" }}>PortLev.com</a>
-        </p>
+      {/* ===================== TESTIMONIALS ===================== */}
+      <section style={{ background: C.deep, color: C.inkOnDark }}>
+        <div style={{ ...S.container, padding: "88px 28px" }}>
+          <span style={{ ...S.sectionLabel, color: C.brassSoft }}>In the field</span>
+          <h2 style={{ ...S.h2, color: C.cream, marginTop: 14, marginBottom: 48 }}>What HR and operating leaders say.</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28 }}>
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} style={{ background: "rgba(245,240,232,0.04)", border: "1px solid rgba(184,150,62,0.25)", borderRadius: 12, padding: 28 }}>
+                <p style={{ fontFamily: serif, fontSize: 18, lineHeight: 1.5, color: C.cream, margin: "0 0 22px" }}>&ldquo;{t.quote}&rdquo;</p>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.brassSoft }}>{t.author}</div>
+                <div style={{ fontSize: 13, color: "rgba(234,228,214,0.6)" }}>{t.company}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== PRICING ===================== */}
+      <section id="pricing" style={{ ...S.container, padding: "96px 28px" }}>
+        <div style={{ maxWidth: 640, marginBottom: 56 }}>
+          <span style={S.sectionLabel}>Pricing</span>
+          <h2 style={{ ...S.h2, marginTop: 14 }}>Less than one HR coordinator&apos;s week.</h2>
+          <p style={{ ...S.muted, marginTop: 12 }}>7-day free trial on every plan. No credit card to start.</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 24 }}>
+          {PRICING.map((p) => (
+            <div key={p.tier} style={{
+              background: p.featured ? C.forest : C.card,
+              color: p.featured ? C.cream : C.forest,
+              border: `1px solid ${p.featured ? C.forest : C.line}`,
+              borderRadius: 16, padding: 32, position: "relative",
+            }}>
+              {p.featured && (
+                <div style={{ position: "absolute", top: -11, left: 32, background: C.brass, color: C.deep, fontFamily: monoF, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", padding: "4px 12px", borderRadius: 6 }}>MOST POPULAR</div>
+              )}
+              <div style={{ fontFamily: monoF, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: p.featured ? C.brassSoft : C.brass, marginBottom: 14 }}>{p.tier}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: serif, fontSize: 40, fontWeight: 600 }}>{p.price}</span>
+                <span style={{ fontSize: 13, color: p.featured ? "rgba(234,228,214,0.7)" : C.slate }}>{p.period}</span>
+              </div>
+              <div style={{ fontSize: 13.5, color: p.featured ? "rgba(234,228,214,0.7)" : C.slate, marginBottom: 22 }}>{p.employees}</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px" }}>
+                {p.features.map((f, j) => (
+                  <li key={j} style={{ padding: "7px 0", fontSize: 14, display: "flex", gap: 10, color: p.featured ? "rgba(234,228,214,0.9)" : C.slate }}>
+                    <span style={{ color: p.featured ? C.brassSoft : C.brass, fontWeight: 700 }}>·</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <Link href={p.tier === "Enterprise" ? "#contact" : "/sign-up"} style={{
+                display: "block", textAlign: "center", padding: "13px", borderRadius: 8, fontWeight: 600, fontSize: 14.5, textDecoration: "none",
+                background: p.featured ? C.brass : "transparent",
+                color: p.featured ? C.deep : C.forest,
+                border: `1px solid ${p.featured ? C.brass : C.forest}`,
+              }}>{p.cta}</Link>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================== FAQ ===================== */}
+      <section id="faq" style={{ background: C.linen, borderTop: `1px solid ${C.line}` }}>
+        <div style={{ ...S.container, padding: "96px 28px", maxWidth: 820 }}>
+          <span style={S.sectionLabel}>Questions</span>
+          <h2 style={{ ...S.h2, marginTop: 14, marginBottom: 40 }}>What buyers ask first.</h2>
+          {FAQS.map((f, i) => (
+            <div key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "26px 0" }}>
+              <div style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.forest, marginBottom: 10 }}>{f.q}</div>
+              <p style={S.muted}>{f.a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================== FINAL CTA ===================== */}
+      <section id="contact" style={{ background: C.forest, color: C.cream }}>
+        <div style={{ ...S.container, padding: "96px 28px", textAlign: "center" }}>
+          <h2 style={{ ...S.h2, color: C.cream, maxWidth: 720, margin: "0 auto" }}>
+            Stop answering the same questions. Start proving every answer.
+          </h2>
+          <p style={{ fontSize: 17, color: "rgba(234,228,214,0.75)", margin: "18px auto 32px", maxWidth: 540 }}>
+            Live in under two hours. No credit card required. Your audit trail starts on day one.
+          </p>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/sign-up" style={{ ...S.btnPrimary, background: C.brass, color: C.deep, border: `1px solid ${C.brass}` }}>Start Free Trial →</Link>
+            <a href="mailto:yuri@portlev.com?subject=AI%20HR%20Pilot%20Demo" style={{ ...S.btnGhost, color: C.cream, border: "1px solid rgba(245,240,232,0.4)" }}>Talk to the founder</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== FOOTER ===================== */}
+      <footer style={{ background: C.deep, color: "rgba(234,228,214,0.6)" }}>
+        <div style={{ ...S.container, padding: "36px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Mark size={28} />
+            <span style={{ fontFamily: serif, fontSize: 16, color: C.cream }}>AI HR Pilot</span>
+          </div>
+          <p style={{ fontSize: 12.5, margin: 0 }}>
+            © 2026 AI HR Pilot · Portfolio Leverage Co.
+            {"  ·  "}
+            <a href="/privacy" style={{ color: C.brassSoft }}>Privacy</a>
+            {"  ·  "}
+            <a href="/terms" style={{ color: C.brassSoft }}>Terms</a>
+            {"  ·  "}
+            <a href="mailto:yuri@portlev.com" style={{ color: C.brassSoft }}>Contact</a>
+          </p>
+        </div>
       </footer>
 
-      {/* ============ FAQ STRUCTURED DATA (JSON-LD) ============ */}
+      {/* ===================== FAQ JSON-LD ===================== */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
