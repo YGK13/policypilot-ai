@@ -17,7 +17,9 @@ export async function POST(request) {
   if (guard.error) return guard.error;
 
   try {
-    const { planId, planName, priceInCents, orgId } = await request.json();
+    const { planId, planName, priceInCents } = await request.json();
+    // -- orgId from the authenticated session (never trust client-supplied value) --
+    const orgId = guard.session.orgId;
 
     if (!planId || !planName || !priceInCents) {
       return NextResponse.json(
@@ -58,10 +60,19 @@ export async function POST(request) {
       ],
       success_url: `${origin}/billing?success=true&plan=${planId}`,
       cancel_url: `${origin}/billing?canceled=true`,
+      // -- Embed orgId + planId so the Stripe webhook can update the right org --
       metadata: {
         planId,
         planName,
-        orgId: orgId || "default",
+        orgId: orgId || "unknown",
+      },
+      // -- Pass metadata to the subscription object too (needed for
+      //    subscription.updated / subscription.deleted webhook events) --
+      subscription_data: {
+        metadata: {
+          planId,
+          orgId: orgId || "unknown",
+        },
       },
     });
 

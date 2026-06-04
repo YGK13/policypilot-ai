@@ -57,6 +57,7 @@ function BillingContent() {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // -- orgId is derived server-side from the session, not sent from client --
         body: JSON.stringify({
           planId: plan.id,
           planName: plan.name,
