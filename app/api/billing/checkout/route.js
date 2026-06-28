@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { requireRole } from "@/lib/auth/rbac";
+import { STRIPE_ACCOUNT_ID, withAccount } from "@/lib/stripe-account";
 
 // ============================================================================
 // POST /api/billing/checkout — Create a Stripe Checkout Session
@@ -8,6 +9,10 @@ import { requireRole } from "@/lib/auth/rbac";
 // Returns: { url } — redirect the browser to this Stripe-hosted checkout page
 //
 // Requires STRIPE_SECRET_KEY env var. Without it, returns a demo URL.
+//
+// NOTE: STRIPE_SECRET_KEY is an Organization-level key, so every Stripe API
+// call must pass the target account in the Stripe-Context header. We do that
+// via the per-request { stripeAccount } option (see lib/stripe-account.js).
 // ============================================================================
 
 const HAS_STRIPE = !!process.env.STRIPE_SECRET_KEY;
@@ -37,7 +42,10 @@ export async function POST(request) {
       });
     }
 
-    // -- Create real Stripe Checkout Session --
+    // -- Create real Stripe Checkout Session.
+    //    Stripe-Context (stripeAccount) targets the AI HR Pilot account under
+    //    our Stripe Organization — required because STRIPE_SECRET_KEY is an
+    //    org-level key. --
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const origin = request.headers.get("origin") || "http://localhost:3000";
 
@@ -74,7 +82,7 @@ export async function POST(request) {
           orgId: orgId || "unknown",
         },
       },
-    });
+    }, withAccount());
 
     return NextResponse.json({ url: session.url, demo: false });
   } catch (error) {
