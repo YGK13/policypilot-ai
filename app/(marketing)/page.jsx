@@ -137,7 +137,7 @@ const FAQS = [
   },
   {
     q: "Is my data secure?",
-    a: "Encryption in transit (TLS 1.3) and at rest, via our infrastructure providers (Vercel + Neon). Authentication via Clerk, a SOC 2 Type II certified provider. Per-organization data isolation. Your data is never used to train AI models. AI HR Pilot's own SOC 2 Type II audit is in progress; a DPA is available on request for GDPR-aligned processing.",
+    a: "Encryption in transit (TLS 1.3) and at rest, via our infrastructure providers (Vercel + Neon). Authentication via Clerk, a SOC 2 Type II certified provider. Per-organization data isolation. Your data is never used to train AI models.",
   },
   {
     q: "What if the AI gives a wrong answer?",
@@ -299,7 +299,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
             <span style={S.badge}>🔒 Encryption in transit &amp; at rest</span>
             <span style={S.badge}>🛡️ Your data never trains AI models</span>
-            <span style={S.badge}>📑 SOC 2 audit in progress · DPA on request</span>
+            <span style={S.badge}>🏢 Per-organization data isolation</span>
           </div>
         </div>
       </section>
