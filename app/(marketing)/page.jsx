@@ -117,7 +117,7 @@ const PRICING = [
       "Custom compliance rules",
       "Dedicated CSM + SLA",
       "White-label option",
-      "SOC 2 report on request",
+      "Security review &amp; DPA",
     ],
     cta: "Contact Sales",
     featured: false,
@@ -169,7 +169,7 @@ const FAQS = [
   },
   {
     q: "Is my data secure, and is it used to train models?",
-    a: "Your data is never used to train any model. SOC 2 Type II controls, encryption in transit and at rest, and strict per-organization data isolation.",
+    a: "Your data is never used to train any model. Encryption in transit (TLS 1.3) and at rest via our infrastructure providers (Vercel + Neon). Authentication via Clerk (a SOC 2 Type II certified provider). Strict per-organization data isolation. AI HR Pilot's own SOC 2 Type II audit is in progress, and a DPA is available on request for GDPR-aligned processing.",
   },
   {
     q: "Who built this?",
@@ -283,8 +283,8 @@ export default function LandingPage() {
               <a href="#platform" style={S.btnGhost}>See how it works</a>
             </div>
             <div style={{ display: "flex", gap: 22, marginTop: 30, flexWrap: "wrap", fontFamily: monoF, fontSize: 12.5, color: C.slate, letterSpacing: "0.03em" }}>
-              <span>SOC 2 Type II</span><span style={{ color: C.line }}>·</span>
-              <span>Zero data training</span><span style={{ color: C.line }}>·</span>
+              <span>Encryption at rest &amp; in transit</span><span style={{ color: C.line }}>·</span>
+              <span>Zero AI training on your data</span><span style={{ color: C.line }}>·</span>
               <span>Live in 2 hours</span>
             </div>
           </div>
