@@ -137,7 +137,7 @@ const FAQS = [
   },
   {
     q: "Is my data secure?",
-    a: "SOC 2 Type II certified. 256-bit AES encryption. Your data never trains our models.",
+    a: "Encryption in transit (TLS 1.3) and at rest, via our infrastructure providers (Vercel + Neon). Authentication via Clerk, a SOC 2 Type II certified provider. Per-organization data isolation. Your data is never used to train AI models. AI HR Pilot's own SOC 2 Type II audit is in progress; a DPA is available on request for GDPR-aligned processing.",
   },
   {
     q: "What if the AI gives a wrong answer?",
@@ -297,9 +297,9 @@ export default function LandingPage() {
             </a>
           </div>
           <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
-            <span style={S.badge}>🔒 SOC 2 Type II</span>
-            <span style={S.badge}>🔐 256-bit AES Encryption</span>
-            <span style={S.badge}>🌍 GDPR Compliant</span>
+            <span style={S.badge}>🔒 Encryption in transit &amp; at rest</span>
+            <span style={S.badge}>🛡️ Your data never trains AI models</span>
+            <span style={S.badge}>📑 SOC 2 audit in progress · DPA on request</span>
           </div>
         </div>
       </section>
@@ -310,12 +310,12 @@ export default function LandingPage() {
           <div style={{ textAlign: "center", maxWidth: 700, margin: "0 auto 60px" }}>
             <span style={S.label}>The Problem</span>
             <h2 style={S.h2}>
-              Your HR team spends 60% of their time answering the{" "}
-              <span style={S.gradient}>same questions.</span>
+              73% of HR questions are repeats —{" "}
+              <span style={S.gradient}>and your team answers each one by hand.</span>
             </h2>
             <p style={S.muted}>
-              The average HR department handles 1,200+ employee inquiries per month.
-              73% are repetitive questions with documented answers. (SHRM, 2026)
+              The average HR department handles 1,200+ employee inquiries per month,
+              most with answers already documented in the handbook. (SHRM, industry reporting)
             </p>
           </div>
           <div style={S.grid}>
