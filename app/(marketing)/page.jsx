@@ -117,7 +117,6 @@ const PRICING = [
       "Custom compliance rules",
       "Dedicated CSM + SLA",
       "White-label option",
-      "Security review &amp; DPA",
     ],
     cta: "Contact Sales",
     featured: false,
@@ -169,7 +168,7 @@ const FAQS = [
   },
   {
     q: "Is my data secure, and is it used to train models?",
-    a: "Your data is never used to train any model. Encryption in transit (TLS 1.3) and at rest via our infrastructure providers (Vercel + Neon). Authentication via Clerk (a SOC 2 Type II certified provider). Strict per-organization data isolation. AI HR Pilot's own SOC 2 Type II audit is in progress, and a DPA is available on request for GDPR-aligned processing.",
+    a: "Your data is never used to train any model. Encryption in transit (TLS 1.3) and at rest via our infrastructure providers (Vercel + Neon). Authentication via Clerk (a SOC 2 Type II certified provider). Strict per-organization data isolation.",
   },
   {
     q: "Who built this?",
