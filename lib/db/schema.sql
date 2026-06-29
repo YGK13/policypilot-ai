@@ -2,6 +2,28 @@
 -- AI HR PILOT — Neon Postgres Schema
 -- Multi-tenant database for persistent ticket, document, and audit storage.
 -- Designed for Neon serverless with connection pooling.
+--
+-- ============================================================================
+-- APPLYING THIS SCHEMA — DDL must NOT use the Neon HTTP driver
+-- ============================================================================
+-- @neondatabase/serverless's `neon()` HTTP driver silently DROPS DDL: it
+-- reports success for CREATE TABLE / CREATE INDEX / ALTER TABLE statements
+-- but the changes never appear in pg_tables / pg_indexes / pg_constraint.
+-- Both pooled and unpooled URLs exhibit this — the issue is the implicit-
+-- transaction handling on Neon's HTTP proxy.
+--
+-- To apply schema changes, use ONE of:
+--   1. The /api/setup endpoint (runs server-side in Vercel; needs SETUP_SECRET)
+--   2. The WebSocket `Pool` transport, e.g.:
+--        import { Pool, neonConfig } from "@neondatabase/serverless";
+--        import ws from "ws";
+--        neonConfig.webSocketConstructor = ws;
+--        const pool = new Pool({ connectionString: DATABASE_URL_UNPOOLED });
+--        await pool.query("CREATE TABLE ...");
+--
+-- This is recorded so future schema migrations don't repeat the discovery
+-- (it cost us several hours in June 2026 — first on idx_users_org_email,
+-- again on self_service_requests).
 -- ============================================================================
 
 -- ============================================================================
