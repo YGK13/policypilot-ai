@@ -142,7 +142,7 @@ export default function BlogIndex() {
         <p style={{ fontSize: 13, color: "#8b8fa3" }}>
           &copy; 2026 AI HR Pilot by Portfolio Leverage Co. &middot;{" "}
           <Link href="/" style={{ color: "#3b82f6" }}>Home</Link>{" "}&middot;{" "}
-          <a href="mailto:yuri.kruman@gmail.com" style={{ color: "#3b82f6" }}>Contact</a>
+          <a href="mailto:support@aihrpilot.com" style={{ color: "#3b82f6" }}>Contact</a>
         </p>
       </footer>
     </div>

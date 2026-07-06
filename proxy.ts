@@ -15,11 +15,15 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)
+  "/api/drip(.*)",      // Drip engine forwarder routes (server-to-server, no Clerk session)
   "/robots.txt",        // Search engine crawlers need this
   "/sitemap.xml",       // Search engine crawlers need this
   "/llms.txt",          // AI answer engine crawlers (ChatGPT, Perplexity, Claude)
   "/faq",               // Public FAQ page for AEO
   "/blog(.*)",          // Public blog/article pages for SEO
+  "/terms",             // Legal pages MUST be public (Stripe + procurement requirement)
+  "/privacy",
+  "/security",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

@@ -31,14 +31,12 @@ export default function SignInPage() {
           />
         </div>
 
-        {/* Security badges */}
+        {/* Security note — only claims we can back up */}
         <div className="text-center mt-6">
           <div className="flex items-center justify-center gap-4 text-[10px] text-gray-600">
-            <span>SOC 2 Type II</span>
+            <span>Encrypted in transit &amp; at rest</span>
             <span>·</span>
-            <span>256-bit AES Encryption</span>
-            <span>·</span>
-            <span>GDPR Compliant</span>
+            <span>Per-organization data isolation</span>
           </div>
         </div>
       </div>

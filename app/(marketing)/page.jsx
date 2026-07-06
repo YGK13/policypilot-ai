@@ -43,9 +43,9 @@ const FEATURES = [
     desc: "Built by a CHRO with a law degree. Flags legally sensitive topics before they become problems.",
   },
   {
-    icon: "💬",
-    title: "Multi-Channel",
-    desc: "Slack, Teams, email, or embedded widget. Meets employees where they are.",
+    icon: "🗂️",
+    title: "Audit-Ready Trail",
+    desc: "Every question, answer and escalation is logged. When legal asks 'what did we tell them', you have the record.",
   },
   {
     icon: "📊",
@@ -53,9 +53,9 @@ const FEATURES = [
     desc: "See what employees ask most. Identify policy gaps. Measure resolution time.",
   },
   {
-    icon: "🚀",
-    title: "Onboarding Accelerator",
-    desc: "New hires get instant answers from Day 1. Reduces HR onboarding load by 40%.",
+    icon: "🙋",
+    title: "Employee Self-Service",
+    desc: "PTO, leave and info-change requests flow through structured workflows with HR review, not scattered DMs.",
   },
 ];
 
@@ -82,9 +82,9 @@ const PRICING = [
     employees: "Up to 500",
     features: [
       "50 policy documents",
-      "Slack + Teams + web widget",
+      "Team roles + case management",
       "Advanced triage routing",
-      "Full analytics + reports",
+      "Full analytics + audit log",
       "FMLA, ADA compliance flags",
       "Priority email support",
     ],
@@ -98,35 +98,33 @@ const PRICING = [
     employees: "Unlimited",
     features: [
       "Unlimited documents",
-      "All channels + email + API",
-      "Custom triage workflows",
-      "Custom reports + exports",
-      "Custom compliance rules",
-      "Dedicated CSM",
+      "Custom escalation rules",
+      "Quarterly policy review with a 3x CHRO",
+      "Dedicated onboarding",
+      "Priority support with SLA",
     ],
     cta: "Contact Sales",
     featured: false,
   },
 ];
 
-const TESTIMONIALS = [
+// -- Founding-customer program replaces testimonials until we have real,
+//    named, referenceable customers. Never ship invented quotes. --
+const FOUNDING_BENEFITS = [
   {
-    quote:
-      "We went from 200+ Slack DMs per week to under 30. AI HR Pilot handles the rest with better accuracy than our wiki ever did.",
-    author: "HR Director",
-    company: "250-person SaaS company",
+    icon: "🤝",
+    title: "Direct line to the founder",
+    desc: "Your escalation rules, policy edge cases and rollout plan are reviewed personally by a 3x CHRO, not a support queue.",
   },
   {
-    quote:
-      "The compliance flagging alone is worth the price. It caught a potential ADA issue we would have missed.",
-    author: "VP People",
-    company: "Healthcare startup",
+    icon: "🔒",
+    title: "Founding price, locked",
+    desc: "Founding customers keep their launch pricing for as long as they stay. No repricing when the platform grows.",
   },
   {
-    quote:
-      "I manage HR for 3 portfolio companies. AI HR Pilot is deployed across all of them. Best $1K/month I spend.",
-    author: "Fractional CHRO",
-    company: "3 portfolio companies",
+    icon: "🛠️",
+    title: "Your roadmap votes count double",
+    desc: "Slack and Teams channels, HRIS sync and API access get built in the order founding customers need them.",
   },
 ];
 
@@ -384,21 +382,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============ TESTIMONIALS ============ */}
+      {/* ============ FOUNDING CUSTOMER PROGRAM ============ */}
       <section style={S.section}>
         <div style={{ ...S.container, textAlign: "center" }}>
-          <span style={S.label}>What HR Leaders Say</span>
+          <span style={S.label}>Founding Customer Program</span>
           <h2 style={S.h2}>
-            Trusted by <span style={S.gradient}>growing teams.</span>
+            Early. On purpose. <span style={S.gradient}>Here&apos;s what that buys you.</span>
           </h2>
+          <p style={{ ...S.muted, maxWidth: 640, margin: "0 auto" }}>
+            AI HR Pilot is newly launched. We won&apos;t show you invented testimonials —
+            we&apos;ll show you what founding customers actually get.
+          </p>
           <div style={{ ...S.grid, marginTop: 60 }}>
-            {TESTIMONIALS.map((t, i) => (
+            {FOUNDING_BENEFITS.map((t, i) => (
               <div key={i} style={S.testimonialCard}>
-                <p style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{t.author}</div>
-                <div style={{ fontSize: 13, color: "#8b8fa3" }}>{t.company}</div>
+                <div style={{ fontSize: 28, marginBottom: 16 }}>{t.icon}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{t.title}</div>
+                <p style={{ ...S.muted, fontSize: 14, lineHeight: 1.7 }}>{t.desc}</p>
               </div>
             ))}
           </div>
@@ -525,10 +525,17 @@ export default function LandingPage() {
 
       {/* ============ FOOTER ============ */}
       <footer style={{ padding: "40px 0", borderTop: "1px solid #27272a", textAlign: "center" }}>
+        <p style={{ fontSize: 13, color: "#8b8fa3", marginBottom: 8 }}>
+          <Link href="/terms" style={{ color: "#8b8fa3" }}>Terms of Service</Link>
+          {" | "}
+          <Link href="/privacy" style={{ color: "#8b8fa3" }}>Privacy Policy</Link>
+          {" | "}
+          <Link href="/security" style={{ color: "#8b8fa3" }}>Security</Link>
+        </p>
         <p style={{ fontSize: 13, color: "#8b8fa3" }}>
           &copy; 2026 AI HR Pilot by Portfolio Leverage Co. All rights reserved.
           {" | "}
-          <a href="mailto:yuri.kruman@gmail.com" style={{ color: "#3b82f6" }}>Contact</a>
+          <a href="mailto:support@aihrpilot.com" style={{ color: "#3b82f6" }}>support@aihrpilot.com</a>
           {" | "}
           <a href="https://portlev.com" style={{ color: "#3b82f6" }}>PortLev.com</a>
         </p>
