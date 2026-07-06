@@ -274,3 +274,26 @@ CREATE INDEX IF NOT EXISTS idx_ssr_org ON self_service_requests(org_id);
 CREATE INDEX IF NOT EXISTS idx_ssr_user ON self_service_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_ssr_action ON self_service_requests(org_id, action);
 CREATE INDEX IF NOT EXISTS idx_ssr_status ON self_service_requests(org_id, status);
+
+-- ============================================================================
+-- DOCUMENT CHUNKS — extracted handbook text for retrieval (RAG)
+-- Populated at upload time by lib/rag.js: extract → chunk → embed → store.
+-- embedding is nullable so keyword search still works when the embedding
+-- provider is unavailable (retrieval falls back to Postgres full-text rank).
+-- Requires the pgvector extension (supported natively on Neon).
+-- ============================================================================
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id        TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  document_id   TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  document_name TEXT NOT NULL,
+  chunk_index   INTEGER NOT NULL,
+  section       TEXT,                      -- nearest heading above the chunk, for citations
+  content       TEXT NOT NULL,
+  embedding     vector(1536),              -- text-embedding-3-small via AI Gateway
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_org ON document_chunks(org_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_doc ON document_chunks(document_id);

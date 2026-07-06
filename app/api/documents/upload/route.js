@@ -1,14 +1,18 @@
 // ============================================================================
-// API: /api/documents/upload — File upload via Vercel Blob + Neon record
+// API: /api/documents/upload — File upload + handbook indexing
 //
-// POST: Upload file to Vercel Blob, then create a document record in Neon.
-// Falls back to demo mode when BLOB_READ_WRITE_TOKEN is not configured.
-// orgId is passed as a form field alongside the file.
+// POST: Validate → enforce plan document limit → upload to Vercel Blob →
+//       create Neon record → extract/chunk/embed the text so chat answers
+//       actually come from this document (lib/rag.js).
+//
+// orgId is ALWAYS derived from the authenticated session, never the client.
 // ============================================================================
 
 import { NextResponse } from "next/server";
 import { createDocument, isDbAvailable } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
+import { checkDocumentLimit } from "@/lib/auth/plan";
+import { indexDocument } from "@/lib/rag";
 
 // -- Derive document type from file extension --
 function inferType(filename) {
@@ -16,6 +20,7 @@ function inferType(filename) {
   if (ext === "pdf") return "pdf";
   if (ext === "docx" || ext === "doc") return "docx";
   if (ext === "xlsx" || ext === "xls" || ext === "csv") return "xlsx";
+  if (ext === "txt" || ext === "md") return "txt";
   return "pdf";
 }
 
@@ -25,8 +30,9 @@ export async function POST(request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
-  const orgId = formData.get("orgId") || "default";
-  const uploadedBy = formData.get("uploadedBy") || null;
+  // -- Session-derived tenant. "default" only exists in Clerk-less demo mode. --
+  const orgId = guard.session.orgId || "default";
+  const uploadedBy = guard.session.user?.id || null;
 
   if (!file) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -39,10 +45,11 @@ export async function POST(request) {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "text/csv",
     "text/plain",
+    "text/markdown",
   ];
   if (!allowedTypes.includes(file.type)) {
     return NextResponse.json(
-      { error: `File type not allowed: ${file.type}. Accepted: PDF, DOCX, XLSX, CSV, TXT` },
+      { error: `File type not allowed: ${file.type}. Accepted: PDF, DOCX, XLSX, CSV, TXT, MD` },
       { status: 400 }
     );
   }
@@ -56,13 +63,35 @@ export async function POST(request) {
     );
   }
 
+  // -- Plan enforcement: document count per tier --
+  if (isDbAvailable() && !guard.session.demo) {
+    try {
+      const gate = await checkDocumentLimit(orgId);
+      if (!gate.ok) {
+        return NextResponse.json(
+          {
+            error: `Document limit reached: your ${gate.plan} plan includes ${gate.limit} documents (${gate.current} used). Upgrade in Billing to add more.`,
+            code: "plan_limit",
+          },
+          { status: 402 }
+        );
+      }
+    } catch (err) {
+      console.warn("[API] plan check failed (allowing upload):", err.message);
+    }
+  }
+
+  // -- Read the file once; the same buffer feeds Blob storage and indexing --
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
   let blobUrl = null;
 
   // -- Upload to Vercel Blob if configured --
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const { put } = await import("@vercel/blob");
-      const blob = await put(file.name, file, {
+      const blob = await put(file.name, buffer, {
         access: "public",
         addRandomSuffix: true,
       });
@@ -87,7 +116,7 @@ export async function POST(request) {
         jurisdictions: ["All"],
         version: "1.0",
         pages: null,
-        status: "draft",
+        status: "active",
         blobUrl,
         blobSize: file.size,
         uploadedBy,
@@ -98,12 +127,33 @@ export async function POST(request) {
     }
   }
 
+  // -- Index for retrieval: extract → chunk → embed → store.
+  //    This is what makes chat answer from THIS document. --
+  let indexResult = { indexed: false, chunks: 0, reason: "not_attempted" };
+  if (dbDoc?.id) {
+    try {
+      indexResult = await indexDocument({
+        orgId,
+        documentId: dbDoc.id,
+        documentName: file.name,
+        buffer,
+        filename: file.name,
+      });
+    } catch (err) {
+      console.error("[API] Document indexing failed:", err);
+      indexResult = { indexed: false, chunks: 0, reason: err.message };
+    }
+  }
+
   return NextResponse.json({
     url: blobUrl,
     dbId: dbDoc?.id || null,
     name: file.name,
     type: inferType(file.name),
     size: file.size,
+    indexed: indexResult.indexed,
+    chunks: indexResult.chunks,
+    indexReason: indexResult.reason,
     demo: !process.env.BLOB_READ_WRITE_TOKEN,
   });
 }
