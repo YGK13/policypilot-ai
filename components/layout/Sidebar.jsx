@@ -27,7 +27,8 @@ const NAV_GROUPS = [
     adminOnly: true,
     items: [
       { key: 'cases',         href: '/cases',         icon: '🔒', label: 'Case Management' },
-      { key: 'integrations', href: '/integrations', icon: '🔗', label: 'Integrations' },
+      // -- Integrations hidden until real OAuth/sync ships: the page only
+      //    wrote a cosmetic "connected" flag, which is a demo-credibility risk --
       { key: 'policies',     href: '/policies',     icon: '📋', label: 'Policies & Jurisdictions' },
       { key: 'analytics',    href: '/analytics',    icon: '📈', label: 'Analytics' },
     ],
@@ -40,7 +41,8 @@ const NAV_GROUPS = [
       { key: 'audit',    href: '/audit',    icon: '🔍', label: 'Audit Log' },
       { key: 'settings', href: '/settings', icon: '⚙️', label: 'Settings' },
       { key: 'billing',  href: '/billing',  icon: '💳', label: 'Billing & Plans' },
-      { key: 'api-keys', href: '/api-keys', icon: '🔑', label: 'API Keys', statusDot: 'green' },
+      // -- API Keys hidden until an authenticated public API exists: keys were
+      //    generated and hashed correctly but nothing validated them --
     ],
   },
 ];

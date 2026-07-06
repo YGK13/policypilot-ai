@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { requireRole } from "@/lib/auth/rbac";
 import { STRIPE_ACCOUNT_ID, withAccount } from "@/lib/stripe-account";
+import PLANS from "@/lib/data/plans";
 
 // ============================================================================
 // POST /api/billing/checkout — Create a Stripe Checkout Session
-// Accepts: { planId, planName, priceInCents }
+// Accepts: { planId }
 // Returns: { url } — redirect the browser to this Stripe-hosted checkout page
+//
+// The PRICE IS NEVER TAKEN FROM THE CLIENT: it is resolved server-side from
+// lib/data/plans.js by planId. (A client-supplied priceInCents previously
+// allowed checkout at any arbitrary amount.)
 //
 // Requires STRIPE_SECRET_KEY env var. Without it, returns a demo URL.
 //
@@ -22,16 +27,20 @@ export async function POST(request) {
   if (guard.error) return guard.error;
 
   try {
-    const { planId, planName, priceInCents } = await request.json();
+    const { planId } = await request.json();
     // -- orgId from the authenticated session (never trust client-supplied value) --
     const orgId = guard.session.orgId;
 
-    if (!planId || !planName || !priceInCents) {
+    // -- Resolve the plan + price SERVER-SIDE. Client only names the plan. --
+    const plan = PLANS.find((p) => p.id === planId);
+    if (!plan) {
       return NextResponse.json(
-        { error: "Missing required fields: planId, planName, priceInCents" },
+        { error: "Unknown planId. Expected one of: " + PLANS.map((p) => p.id).join(", ") },
         { status: 400 }
       );
     }
+    const planName = plan.name;
+    const priceInCents = plan.price * 100;
 
     // -- If no Stripe key, return a demo response --
     if (!HAS_STRIPE) {

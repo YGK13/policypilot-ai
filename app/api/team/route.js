@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { isDbAvailable, getOrgUsers, inviteUser, updateUserRole, setUserActive } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
+import { checkSeatLimit } from "@/lib/auth/plan";
 import { sendInviteEmail } from "@/lib/email";
 
 // ============================================================================
@@ -53,6 +54,18 @@ export async function POST(request) {
     const orgId = guard.session.orgId;
     if (!orgId || !user?.email || !user?.name) {
       return NextResponse.json({ error: "Missing org context, email, or name" }, { status: 400 });
+    }
+
+    // -- Plan enforcement: seat count per tier --
+    const gate = await checkSeatLimit(orgId);
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          error: `Seat limit reached: your ${gate.plan} plan includes ${gate.limit} team members (${gate.current} active). Upgrade in Billing to add more.`,
+          code: "plan_limit",
+        },
+        { status: 402 }
+      );
     }
 
     // -- Persist to DB so the member appears in the team list immediately --

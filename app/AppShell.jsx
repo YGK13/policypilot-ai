@@ -270,11 +270,9 @@ function LoginScreen({ onLogin }) {
             <button className="text-brand-400 hover:text-brand-300 font-semibold cursor-pointer">Request access</button>
           </p>
           <div className="flex items-center justify-center gap-4 text-[10px] text-gray-600">
-            <span>SOC 2 Type II</span>
+            <span>Encrypted in transit &amp; at rest</span>
             <span>·</span>
-            <span>256-bit AES Encryption</span>
-            <span>·</span>
-            <span>GDPR Compliant</span>
+            <span>Per-organization data isolation</span>
           </div>
         </div>
       </div>
@@ -333,6 +331,27 @@ export default function AppShell({ children }) {
       return DEMO_EMPLOYEES[0];
     }
   );
+
+  // -- Real (Clerk) accounts NEVER use the demo roster: the employee context
+  //    is the signed-in user. Demo mode keeps the roster + switcher. The
+  //    server independently derives identity from the session, so this is
+  //    display-layer hygiene, not a security boundary. --
+  const clerkEmployee =
+    CLERK_ENABLED && clerkUser.isSignedIn && clerkUser.user
+      ? {
+          id: clerkUser.user.id,
+          firstName:
+            clerkUser.user.firstName ||
+            (clerkUser.user.fullName || "User").split(" ")[0],
+          lastName: clerkUser.user.lastName || "",
+          department: null,
+          title: null,
+          state: "Federal",
+          location: null,
+          status: "Active",
+        }
+      : null;
+  const effectiveEmployee = clerkEmployee || employee;
 
   // -- Shared state with localStorage hydration --
   const [tickets, setTickets] = useState(() => saved.current?.tickets || []);
@@ -529,7 +548,7 @@ export default function AppShell({ children }) {
     // -- Org --
     orgId,
     // -- Employee context --
-    employee,
+    employee: effectiveEmployee,
     setEmployee,
     // -- Data --
     tickets, setTickets,
@@ -539,8 +558,8 @@ export default function AppShell({ children }) {
     addAudit,
     // -- Notifications --
     notifications, addNotification, markNotificationRead, clearNotifications,
-    // -- Constants --
-    allEmployees: DEMO_EMPLOYEES,
+    // -- Constants (demo roster only exists in Clerk-less demo mode) --
+    allEmployees: CLERK_ENABLED ? [] : DEMO_EMPLOYEES,
   };
 
   // -- Don't render anything until hydrated (prevents flash) --
@@ -597,7 +616,7 @@ export default function AppShell({ children }) {
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Topbar
               currentUser={currentUser}
-              employee={employee}
+              employee={effectiveEmployee}
               employees={!CLERK_ENABLED && isAdmin ? DEMO_EMPLOYEES : []}
               onEmployeeChange={(id) =>
                 setEmployee(DEMO_EMPLOYEES.find((e) => e.id === id))

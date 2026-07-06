@@ -41,7 +41,16 @@ export async function POST(request) {
   }
 
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
-  const skipVerify = process.env.CLERK_WEBHOOK_SECRET_SKIP_VERIFY === "true";
+  // -- The skip-verify escape hatch is DEV ONLY. In production it is ignored,
+  //    and a missing secret fails closed: an unsigned webhook could otherwise
+  //    inject fake users and orgs into the database. --
+  const isProd = process.env.NODE_ENV === "production";
+  const skipVerify = !isProd && process.env.CLERK_WEBHOOK_SECRET_SKIP_VERIFY === "true";
+
+  if (isProd && !webhookSecret) {
+    console.error("[Webhook] CLERK_WEBHOOK_SECRET not set in production — rejecting webhook");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  }
 
   // -- Verify signature when secret is configured --
   if (webhookSecret && !skipVerify) {
