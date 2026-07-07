@@ -42,7 +42,7 @@ nextConfig.headers = () => [
           "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
           "img-src 'self' data: blob: https://*.clerk.accounts.dev https://*.clerk.com https://img.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
           "font-src 'self' data: https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com",
-          "connect-src 'self' https://api.anthropic.com https://*.vercel.app https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.services https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com",
+          "connect-src 'self' https://api.anthropic.com https://*.vercel.app https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.services https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
           "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk.aihrpilot.com https://accounts.aihrpilot.com https://challenges.cloudflare.com",
           "frame-ancestors 'none'",
           "worker-src 'self' blob:",
@@ -60,4 +60,24 @@ nextConfig.headers = () => [
   },
 ];
 
-export default nextConfig;
+// ============================================================================
+// SENTRY — wrap the config so server/edge/client errors are captured.
+// The wrapper is inert at runtime unless a DSN is set in the Sentry configs.
+// Source-map upload only runs during `next build` when SENTRY_AUTH_TOKEN +
+// org/project are present; otherwise it silently skips (no build break).
+// ============================================================================
+import { withSentryConfig } from "@sentry/nextjs";
+
+const sentryBuildOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // -- Quiet build logs; skip source-map upload entirely without a token. --
+  silent: true,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // -- Don't fail the build if Sentry's plugin hits an error. --
+  errorHandler: () => {},
+  telemetry: false,
+};
+
+export default withSentryConfig(nextConfig, sentryBuildOptions);

@@ -7,7 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
@@ -15,6 +18,7 @@
     "@ai-sdk/react": "^3.0.156",
     "@clerk/nextjs": "7.4.2",
     "@neondatabase/serverless": "^1.0.2",
+    "@sentry/nextjs": "^10.63.0",
     "@vercel/blob": "^2.3.2",
     "ai": "^6.0.141",
     "dompurify": "^3.3.3",
@@ -29,9 +33,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.3.1",
     "eslint": "^10.1.0",
     "postcss": "^8.5.8",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "vitest": "^4.1.10"
   }
 }
