@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)
   "/api/drip(.*)",      // Drip engine forwarder routes (server-to-server, no Clerk session)
+  "/api/setup(.*)",     // Schema init endpoint (gated internally by SETUP_SECRET bearer token)
   "/robots.txt",        // Search engine crawlers need this
   "/sitemap.xml",       // Search engine crawlers need this
   "/llms.txt",          // AI answer engine crawlers (ChatGPT, Perplexity, Claude)
