@@ -27,8 +27,12 @@ const NAV_GROUPS = [
     adminOnly: true,
     items: [
       { key: 'cases',         href: '/cases',         icon: '🔒', label: 'Case Management' },
-      // -- Integrations hidden until real OAuth/sync ships: the page only
-      //    wrote a cosmetic "connected" flag, which is a demo-credibility risk --
+      // -- Integrations link restored for pilot users. Page itself renders a
+      //    "Beta configuration" banner over connectors that are not yet backed
+      //    by a real OAuth/webhook loop, so nobody mistakes credential capture
+      //    for a live sync. Real providers ship in the payroll-integrations
+      //    batch (Gusto → Rippling → QuickBooks Payroll first). --
+      { key: 'integrations', href: '/integrations', icon: '🔌', label: 'Integrations' },
       { key: 'policies',     href: '/policies',     icon: '📋', label: 'Policies & Jurisdictions' },
       { key: 'analytics',    href: '/analytics',    icon: '📈', label: 'Analytics' },
     ],

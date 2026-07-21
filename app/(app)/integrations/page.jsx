@@ -155,6 +155,28 @@ function IntegrationsContent() {
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
+      {/* ============ Beta banner — honest disclosure ============ */}
+      {/* We list many HRIS/ATS/comm/storage providers below because pilot
+          buyers ask for them. Today the "Connect" flow persists credentials
+          and a status flag; it does NOT yet pull employees, run payroll
+          webhooks or sync PTO for every provider. Real one-way sync ships
+          per-provider in the payroll batch (Gusto, Rippling, QuickBooks
+          Payroll first). This banner exists so nobody mistakes credential
+          capture for a live integration. */}
+      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="flex items-start gap-2">
+          <span className="text-base leading-none mt-0.5">{"⚠"}</span>
+          <div>
+            <div className="font-semibold">Beta configuration</div>
+            <div className="mt-0.5 text-amber-800/90">
+              Setup captures credentials so your team can wire providers now. Live one-way sync
+              ships per-provider on a rolling basis, starting with payroll (Gusto, Rippling,
+              QuickBooks Payroll). Pilot orgs get sync toggled on as each provider goes live.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ============ Category Tab Bar ============ */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 overflow-x-auto">
         {CATEGORIES.map((cat) => (
