@@ -96,11 +96,36 @@ export async function GET(request, { params }) {
     try {
       const provider = await loadProvider(providerName);
       const tokens = await provider.exchangeCode(code);
+
+      // -- Provider-specific callback param harvesting. Intuit (QBO)
+      //    delivers realmId on the callback URL, not inside the token
+      //    response, so we grab it here. Other providers ignore this. --
+      let providerAccountId = null;
+      if (providerName === "qbo") {
+        providerAccountId = url.searchParams.get("realmId") || null;
+      }
+      // -- If we did not learn the account id from the callback, try
+      //    the provider's introspection endpoint. Wrapped so a failing
+      //    discovery does not block persisting the tokens themselves. --
+      if (!providerAccountId && typeof provider.discoverAccount === "function") {
+        try {
+          const disc = await provider.discoverAccount({
+            accessToken:  tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            providerAccountId: null,
+          });
+          providerAccountId = disc?.providerAccountId || null;
+        } catch {
+          // Non-fatal; a later manual sync can retry discovery.
+        }
+      }
+
       await upsertPayrollConnection(claim.orgId, providerName, {
         accessTokenEnc:    encrypt(tokens.accessToken),
         refreshTokenEnc:   tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
         tokenExpiresAt:    tokens.expiresAt,
         scope:             tokens.scope,
+        providerAccountId,
         status:            "active",
         connectedByUserId: claim.userId || null,
       });

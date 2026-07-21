@@ -241,10 +241,8 @@ app/
 
 ## Sequencing recommendation (revised 2026-07-21)
 
-Week 1: shared plumbing + Gusto (in progress).
-Week 2: BambooHR + QBO.
-Week 3: Finch (unlocks ADP/Paychex/Paylocity/UKG in one build).
-Week 4: harden, test suite, launch to pilot orgs.
-Parallel week 1: submit Rippling partner application; wire it when approval clears (week 4-6).
+- **Shipped:** shared plumbing (encryption, retry, provider registry, schema, sync orchestrator, OAuth callback, webhook receiver, manual sync route), Gusto OAuth adapter, BambooHR API-key adapter, QBO OAuth adapter, Finch OAuth adapter.
+- **Next:** harden suite + fixture-based contract tests per provider (see "Testing & hardening" above) before enabling live syncs for pilot orgs.
+- **Parallel:** submit Rippling partner application; wire the direct adapter when approval clears.
 
-**Do NOT** try to ship all providers at once. It is how integrations rot into "cosmetic Connect" flows again.
+**Do NOT** try to enable all four in a single pilot org on day one. Turn one on, verify data lands cleanly, then the next. Same rule that stopped us from shipping cosmetic Connect flows.

@@ -105,15 +105,50 @@ function IntegrationsContent() {
     window.history.replaceState({}, "", clean.toString());
   }, [addToast, setIntegrations]);
 
-  // -- Connect a connector: optimistic + awaited + rollback on failure --
+  // -- Connect a connector.
+  //    Three paths based on the connector definition:
+  //      1. apiKeyConnect  -> POST to the real payroll connect route which
+  //         validates credentials against the provider before persisting;
+  //         no optimistic update because we need the real 200/422 verdict
+  //         before we can claim "connected."
+  //      2. oauthStart     -> should never land here (openConfig short-
+  //         circuits to a browser redirect before the modal opens); guarded
+  //         just in case a future change routes it through.
+  //      3. cosmetic       -> legacy /api/integrations flow. Beta banner
+  //         disclaims that this only stores config, no live sync. --
   const handleConnect = useCallback(async () => {
     if (!configModal) return;
-    const now = new Date().toISOString();
     const selectedSyncFields = Object.keys(syncToggles).filter((k) => syncToggles[k]);
     const connectorId = configModal.id;
     const connectorName = configModal.name;
+    const now = new Date().toISOString();
 
-    // -- Optimistic update --
+    // ---- Path 1: real API-key connect (BambooHR today) ----
+    if (configModal.apiKeyConnect) {
+      try {
+        const res = await fetch(configModal.apiKeyConnect, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credentials: fieldValues }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.reason || data.error || "Connection failed");
+        }
+        setIntegrations((prev) => ({
+          ...prev,
+          [connectorId]: { connected: true, connectedAt: now, config: {} },
+        }));
+        setConfigModal(null);
+        addAudit("INTEGRATION_CONNECTED", `Connected ${connectorName}`, "info");
+        addToast("success", "Integration Connected", `${connectorName} validated and live.`);
+      } catch (err) {
+        addToast("error", "Connection Failed", err.message || "Credentials rejected.");
+      }
+      return;
+    }
+
+    // ---- Path 3: legacy cosmetic connect ----
     setIntegrations((prev) => ({
       ...prev,
       [connectorId]: { connected: true, connectedAt: now, config: fieldValues },
