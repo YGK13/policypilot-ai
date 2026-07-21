@@ -26,11 +26,13 @@
 import { NextResponse } from "next/server";
 import { isDbAvailable, getDb } from "@/lib/db";
 
-// -- Tables the schema creates --
+// -- Tables the schema creates. Keep in sync with lib/db/schema.sql AND with
+//    the identical list in app/api/setup/route.js. --
 const EXPECTED_TABLES = [
   "organizations", "users", "tickets", "case_notes",
-  "documents", "audit_log", "regulatory_reviews",
+  "documents", "document_chunks", "audit_log", "regulatory_reviews",
   "integrations", "chat_messages", "cases", "api_keys",
+  "self_service_requests",
 ];
 
 export const dynamic = "force-dynamic";

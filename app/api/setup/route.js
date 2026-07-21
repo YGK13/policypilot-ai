@@ -21,19 +21,25 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { isDbAvailable, getDb } from "@/lib/db";
 
-// -- Tables we expect to exist after setup, in dependency order --
+// -- Tables we expect to exist after setup, in dependency order.
+//    Keep this in sync with lib/db/schema.sql AND with the identical list
+//    in app/api/health/route.js. Missing entries here caused /api/setup
+//    to report a healthy DB even when self_service_requests / document_chunks
+//    were missing, silently masking schema drift in production. --
 const EXPECTED_TABLES = [
   "organizations",
   "users",
   "tickets",
   "case_notes",
   "documents",
+  "document_chunks",
   "audit_log",
   "regulatory_reviews",
   "integrations",
   "chat_messages",
   "cases",
   "api_keys",
+  "self_service_requests",
 ];
 
 // -- Verify caller is authorized: must supply SETUP_SECRET in Authorization header --

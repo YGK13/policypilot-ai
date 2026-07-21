@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import {
   createTicket, getTickets, updateTicketStatus,
-  updateTicketSatisfaction, isDbAvailable, getOrgSettings
+  updateTicketSatisfaction, getTicketById, isDbAvailable, getOrgSettings
 } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
 import { sendEscalationEmail } from "@/lib/email";
@@ -109,14 +109,30 @@ export async function PATCH(request) {
     }
 
     if (action === "rate") {
-      // -- Rating is self-service: any authenticated user --
+      // -- Rating is self-service: any authenticated user CAN rate, but only
+      //    the ticket owner (or hr_staff+) can rate a specific ticket.
+      //    Previously we let any employee rate any ticket in their org, which
+      //    poisons the answer-quality metric and enables retaliation ratings
+      //    across departments. --
       const guard = await requireRole("employee");
       if (guard.error) return guard.error;
-      const orgId = guard.session.orgId; // authoritative org, not client-supplied
+      const orgId = guard.session.orgId;
 
       if (satisfaction == null) {
         return NextResponse.json({ error: "Missing satisfaction field" }, { status: 400 });
       }
+
+      const existing = await getTicketById(orgId, ticketId);
+      if (!existing) {
+        return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+      }
+
+      const isPrivileged = ["hr_staff", "legal", "hr_admin"].includes(guard.session.role);
+      const isOwner      = existing.user_id && existing.user_id === guard.session.user?.id;
+      if (!isPrivileged && !isOwner) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       const updated = await updateTicketSatisfaction(orgId, ticketId, satisfaction);
       return NextResponse.json({ ticket: updated });
     }

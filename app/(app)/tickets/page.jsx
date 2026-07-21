@@ -1,8 +1,9 @@
 "use client";
 
 import { useApp } from "@/app/AppShell";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/components/layout/ToastProvider";
+import DOMPurify from "dompurify";
 
 // ============================================================================
 // TICKETS PAGE — Table + Kanban views with filtering, action buttons, and
@@ -87,13 +88,25 @@ function TicketModal({ ticket, onClose, onUpdate, isAdmin }) {
             </div>
           )}
 
-          {/* -- AI Response -- */}
+          {/* -- AI Response --
+              SECURITY: ticket.aiResponse comes from the tickets table and can
+              contain HTML (older records store markdown-rendered HTML). We
+              sanitize with DOMPurify before dangerouslySetInnerHTML so a
+              hostile row cannot execute script tags, event handlers or
+              inline JS on the admin who opens the ticket. Whitelist stays
+              tight: no <script>, no <iframe>, no <form>, no on* handlers. */}
           {ticket.aiResponse && (
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">AI Response</label>
               <div
                 className="mt-1 p-3 bg-gray-50 rounded-lg text-xs text-gray-700 leading-relaxed max-h-40 overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: ticket.aiResponse }}
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(String(ticket.aiResponse), {
+                    ALLOWED_TAGS: ["p", "br", "strong", "em", "ul", "ol", "li", "code", "pre", "a", "h1", "h2", "h3", "h4", "blockquote"],
+                    ALLOWED_ATTR: ["href", "target", "rel"],
+                    ALLOW_DATA_ATTR: false,
+                  }),
+                }}
               />
             </div>
           )}

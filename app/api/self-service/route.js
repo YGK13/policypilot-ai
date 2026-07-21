@@ -35,10 +35,20 @@ export async function GET(request) {
 
   const url    = new URL(request.url);
   const orgId  = guard.session.orgId; // authoritative org from session, not the client
-  const userId = url.searchParams.get("userId");
   const action = url.searchParams.get("action");
   const status = url.searchParams.get("status");
   const limit  = parseInt(url.searchParams.get("limit") || "50");
+
+  // -- SECURITY: userId scoping. Employees can only see their OWN requests
+  //    even if they pass ?userId=<someone-else>. hr_staff and above may pass
+  //    ?userId to filter, or omit it to see everyone in the org. Previously
+  //    the caller-supplied ?userId went straight through, which let any
+  //    employee read another employee's leave and info-update requests. --
+  const isPrivileged = ["hr_staff", "legal", "hr_admin"].includes(guard.session.role);
+  const requestedUserId = url.searchParams.get("userId");
+  const userId = isPrivileged
+    ? (requestedUserId || null)
+    : (guard.session.user?.id || null);
 
   try {
     const rows = await getSelfServiceRequests(orgId, { userId, action, status, limit });
@@ -68,7 +78,14 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { userId, employeeId, action, payload, ticketId, notes } = body;
+    const { employeeId, action, payload, ticketId, notes } = body;
+
+    // -- SECURITY: userId is ALWAYS the authenticated user. Previously we
+    //    accepted userId from the body, which let any employee submit a leave
+    //    request in another employee's (or their manager's) name. If we ever
+    //    need "HR submits on behalf of Bob" we add a separate admin endpoint
+    //    with explicit audit; do not soften this. --
+    const userId = guard.session.user?.id || null;
 
     if (!action || !["pto", "leave", "info_update"].includes(action)) {
       return NextResponse.json(
@@ -175,7 +192,7 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json();
-    const { requestId, status, reviewedBy, notes } = body;
+    const { requestId, status, notes } = body;
 
     if (!requestId || !status) {
       return NextResponse.json({ error: "Missing requestId or status" }, { status: 400 });
@@ -184,9 +201,16 @@ export async function PATCH(request) {
       return NextResponse.json({ error: "status must be: approved | denied | completed" }, { status: 400 });
     }
 
+    // -- SECURITY: reviewedBy is ALWAYS the authenticated reviewer, never
+    //    from the body. This is the accountability field HR ops relies on. --
+    const reviewedBy = guard.session.user?.name
+                      || guard.session.user?.email
+                      || guard.session.clerkId
+                      || "unknown";
+
     const updated = await updateSelfServiceRequest(guard.session.orgId, requestId, {
       status,
-      reviewedBy: reviewedBy || null,
+      reviewedBy,
       notes:      notes || null,
     });
 
