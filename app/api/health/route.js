@@ -33,6 +33,8 @@ const EXPECTED_TABLES = [
   "documents", "document_chunks", "audit_log", "regulatory_reviews",
   "integrations", "chat_messages", "cases", "api_keys",
   "self_service_requests",
+  "payroll_connections", "payroll_employees", "payroll_paystubs",
+  "payroll_pto_balances", "payroll_webhook_events",
 ];
 
 export const dynamic = "force-dynamic";

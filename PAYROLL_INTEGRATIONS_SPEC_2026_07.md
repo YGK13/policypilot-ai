@@ -87,22 +87,38 @@ Rank = probability the provider seals a pilot × ease of implementation × sandb
 - **Effort:** 2 eng days.
 - **Ranking:** high buyer overlap with #1 (a lot of Gusto customers use Bamboo for HRIS + Gusto for payroll). Ship it soon so we cover the stack.
 
-### 5. ADP Workforce Now — SHIP FIFTH (enterprise)
+### 5. Finch (unified API shim) — SHIP FIFTH for enterprise coverage
 
-- **Why:** enterprise-standard. Any portco >500 heads probably runs ADP.
-- **Auth:** OAuth 2.0 with client certs. Certificate exchange takes weeks.
-- **Sandbox:** ADP Marketplace developer program required. Weeks of paperwork.
-- **Webhooks:** Yes (Event Notification System) — ADP-specific format.
-- **Effort:** 6 eng days once access is granted. ADP's API surface is enormous and documentation is uneven.
-- **Reality check:** do NOT block the pilot on ADP. Ship #1-#4 first. Kick off ADP paperwork day 1 so certs arrive around when we need them.
+**Pivot from the original ADP-direct plan (2026-07-21):** ADP Marketplace is a 3-9 month program that requires SOC 2 Type II, $2M cyber liability insurance, and a signed ADP data agreement — not viable pre-pilot. Same tier of pain for Paychex and Paylocity direct.
 
-### 6. Paychex — LATER
+- **What it is:** `tryfinch.com` — one API that fronts ADP Workforce Now, Paychex, Paylocity, UKG Pro, plus ~25 more.
+- **Why:** one integration on our side, no per-provider partner reviews, gives us enterprise-provider coverage for the pilot without cutting a single enterprise deal with a payroll vendor.
+- **Auth:** OAuth 2.0 to Finch, then Finch handles the underlying provider handshake with the customer.
+- **Sandbox:** yes, free tier for testing.
+- **Effort:** 3 eng days once we have Finch credentials.
+- **Cost:** per-connection pricing; viable at pilot scale, revisit at ~50 customers.
+- **What it does NOT replace:** Gusto direct (better UX, cheaper), BambooHR direct, QBO direct — we already have those channels working.
 
-- Big SMB footprint but developer program is closed / partner-only. Start the paperwork; do not schedule engineering yet.
+### 6. Rippling — direct is realistic within a quarter
 
-### 7. TriNet — DEFERRED
+- Rippling has a formal API Partner Program. Approval bar: real product, security posture (SOC 2 in progress or equivalent one-pager, breach response docs), and at least one pilot customer under LOI. Not a longshot.
+- Turnaround: 2-6 weeks after we submit.
+- Kick off application week 1 in parallel with Gusto build. Do not wait for pilot customer signatures.
 
-- PEO, targets early-stage tech. Low overlap with Yuri's ICP. Skip for now.
+### 7. ADP direct + Paychex direct + TriNet — DEFERRED indefinitely
+
+- Covered via Finch (rank 5) for the pilot.
+- Only pursue direct if a specific pilot buyer running that provider demands it AND pays for the ~6-month build.
+
+### Effort estimate (revised)
+
+- Shared plumbing (encryption, cron, webhook receiver skeleton, tables): 3 days.
+- Gusto: 3 days.
+- BambooHR: 2 days.
+- QBO: 3 days.
+- Finch (covers ADP/Paychex/Paylocity/UKG): 3 days.
+- Rippling direct (after partner approval): 4 days.
+- **Total to Gusto+BambooHR+QBO+Finch live for pilot: ~14 focused eng days.**
 
 ## Auth + secret storage
 
@@ -223,11 +239,12 @@ app/
 - **Total to Gusto+BambooHR+QBO live (~pilot-ready): 11 focused eng days.**
 - Full slate incl. Rippling + ADP: ~21 days plus external timelines.
 
-## Sequencing recommendation
+## Sequencing recommendation (revised 2026-07-21)
 
-Week 1: shared plumbing + Gusto.
+Week 1: shared plumbing + Gusto (in progress).
 Week 2: BambooHR + QBO.
-Week 3: harden, test suite, launch to pilot orgs.
-Weeks 4-6 parallel: Rippling + ADP paperwork already in motion; engineer them as the partner reviews clear.
+Week 3: Finch (unlocks ADP/Paychex/Paylocity/UKG in one build).
+Week 4: harden, test suite, launch to pilot orgs.
+Parallel week 1: submit Rippling partner application; wire it when approval clears (week 4-6).
 
-**Do NOT** try to ship all seven at once. It is how integrations rot into "cosmetic Connect" flows again.
+**Do NOT** try to ship all providers at once. It is how integrations rot into "cosmetic Connect" flows again.

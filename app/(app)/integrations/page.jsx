@@ -58,9 +58,20 @@ function IntegrationsContent() {
   // -- Get connectors for the active tab --
   const connectors = CONNECTORS[activeTab] || [];
 
-  // -- Open config modal for a connector --
+  // -- Open config modal for a connector, OR kick off a real OAuth flow
+  //    for connectors that have wired one. Gusto is the first live-sync
+  //    provider; more (BambooHR, QBO, Finch, Rippling) will follow via the
+  //    same `oauthStart` field on the connector definition. --
   const openConfig = useCallback((connector) => {
-    // Pre-populate field values and sync toggles
+    if (connector.oauthStart) {
+      // Real OAuth: navigate the browser to the initiate route. The route
+      // 302s to the provider, the provider redirects back to
+      // /api/payroll/oauth/[provider], and that route lands us back on
+      // /integrations?payroll=connected. No modal, no client-side token.
+      window.location.href = connector.oauthStart;
+      return;
+    }
+    // Legacy cosmetic-credentials modal (Beta banner disclaims this)
     const fields = {};
     connector.fields.forEach((f) => { fields[f] = ""; });
     const syncs = {};
@@ -69,6 +80,30 @@ function IntegrationsContent() {
     setSyncToggles(syncs);
     setConfigModal(connector);
   }, []);
+
+  // -- Surface OAuth callback outcome on return from a provider --
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const payroll = params.get("payroll");
+    if (!payroll) return;
+    const provider = params.get("provider") || "provider";
+    if (payroll === "connected") {
+      addToast("success", "Payroll Connected", `${provider} is now live-syncing.`);
+      setIntegrations((prev) => ({
+        ...prev,
+        [provider]: { connected: true, connectedAt: new Date().toISOString(), config: {} },
+      }));
+    } else if (payroll === "error") {
+      addToast("error", "Connection Failed", params.get("reason") || `Could not connect ${provider}.`);
+    }
+    // Clean the URL so a refresh does not re-toast.
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("payroll");
+    clean.searchParams.delete("provider");
+    clean.searchParams.delete("reason");
+    window.history.replaceState({}, "", clean.toString());
+  }, [addToast, setIntegrations]);
 
   // -- Connect a connector: optimistic + awaited + rollback on failure --
   const handleConnect = useCallback(async () => {
@@ -167,11 +202,13 @@ function IntegrationsContent() {
         <div className="flex items-start gap-2">
           <span className="text-base leading-none mt-0.5">{"⚠"}</span>
           <div>
-            <div className="font-semibold">Beta configuration</div>
+            <div className="font-semibold">Live sync rolling out per provider</div>
             <div className="mt-0.5 text-amber-800/90">
-              Setup captures credentials so your team can wire providers now. Live one-way sync
-              ships per-provider on a rolling basis, starting with payroll (Gusto, Rippling,
-              QuickBooks Payroll). Pilot orgs get sync toggled on as each provider goes live.
+              Providers marked <span className="inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded align-middle">● Live sync</span> connect
+              via real OAuth and pull employee, paystub and PTO data on a nightly cadence plus
+              webhook updates. Providers without that badge capture credentials for future
+              live-sync builds. Next up: BambooHR, QuickBooks Payroll, Finch (ADP/Paychex/Paylocity/UKG),
+              then Rippling.
             </div>
           </div>
         </div>
@@ -234,8 +271,13 @@ function IntegrationsContent() {
                 ))}
               </div>
 
-              {/* -- Feature badges: webhook / oauth -- */}
-              <div className="flex items-center gap-2 mb-4">
+              {/* -- Feature badges: live sync / webhook / oauth -- */}
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                {c.liveSync && (
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded">
+                    {"● "}Live sync
+                  </span>
+                )}
                 {c.webhooks && (
                   <span className="px-2 py-0.5 text-[10px] font-semibold bg-green-50 text-green-700 rounded">
                     Webhooks

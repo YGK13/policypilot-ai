@@ -40,6 +40,11 @@ const EXPECTED_TABLES = [
   "cases",
   "api_keys",
   "self_service_requests",
+  "payroll_connections",
+  "payroll_employees",
+  "payroll_paystubs",
+  "payroll_pto_balances",
+  "payroll_webhook_events",
 ];
 
 // -- Verify caller is authorized: must supply SETUP_SECRET in Authorization header --

@@ -297,3 +297,119 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_org ON document_chunks(org_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON document_chunks(document_id);
+
+-- ============================================================================
+-- PAYROLL — provider-native connection state + normalized workforce data
+--
+-- Design: one payroll_connections row per (org, provider). Encrypted tokens
+-- and cursor state live here. Employee/paystub/PTO rows are keyed on
+-- (org_id, provider, provider_employee_id) so multiple providers per org
+-- do not collide, and disconnecting a provider ON DELETE CASCADEs everything.
+--
+-- Read-only, one-way sync. See PAYROLL_INTEGRATIONS_SPEC_2026_07.md.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS payroll_connections (
+  id                    TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id                TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  provider              TEXT NOT NULL,               -- 'gusto' | 'rippling' | 'qbo' | 'bamboohr' | 'finch'
+  provider_account_id   TEXT,                        -- Gusto company_uuid, etc.
+  status                TEXT NOT NULL DEFAULT 'active', -- 'active' | 'expired' | 'revoked' | 'error'
+  scope                 TEXT,
+  access_token_enc      TEXT,                        -- AES-GCM encrypted via lib/payroll/index.js
+  refresh_token_enc     TEXT,
+  token_expires_at      TIMESTAMPTZ,
+  webhook_secret_enc    TEXT,                        -- provider-issued webhook signing secret
+  last_sync_at          TIMESTAMPTZ,
+  last_sync_status      TEXT,                        -- 'ok' | 'partial' | 'error'
+  last_sync_error       TEXT,
+  connected_by_user_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  connected_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (org_id, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_conn_org ON payroll_connections(org_id);
+
+CREATE TABLE IF NOT EXISTS payroll_employees (
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id                 TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  provider               TEXT NOT NULL,
+  provider_employee_id   TEXT NOT NULL,
+  linked_user_id         TEXT REFERENCES users(id) ON DELETE SET NULL, -- matched on email
+  full_name              TEXT,
+  work_email             TEXT,
+  department             TEXT,
+  title                  TEXT,
+  manager_provider_id    TEXT,
+  employment_type        TEXT,                       -- 'full_time' | 'part_time' | 'contractor' | ...
+  hire_date              DATE,
+  termination_date       DATE,
+  work_location          TEXT,
+  work_state             TEXT,                       -- for compliance heatmap join
+  comp_rate              NUMERIC(12,2),
+  comp_currency          TEXT,
+  pay_frequency          TEXT,                       -- 'weekly' | 'biweekly' | 'semimonthly' | 'monthly'
+  raw                    JSONB,                      -- full provider payload, for debugging + future fields
+  synced_at              TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (org_id, provider, provider_employee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_emp_org       ON payroll_employees(org_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_emp_linked    ON payroll_employees(linked_user_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_emp_workemail ON payroll_employees(org_id, work_email);
+CREATE INDEX IF NOT EXISTS idx_payroll_emp_state     ON payroll_employees(org_id, work_state);
+
+CREATE TABLE IF NOT EXISTS payroll_paystubs (
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id                 TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  payroll_employee_id    TEXT NOT NULL REFERENCES payroll_employees(id) ON DELETE CASCADE,
+  provider               TEXT NOT NULL,
+  provider_paystub_id    TEXT NOT NULL,
+  pay_date               DATE NOT NULL,
+  period_start           DATE,
+  period_end             DATE,
+  gross_pay              NUMERIC(12,2),
+  net_pay                NUMERIC(12,2),
+  federal_withholding    NUMERIC(12,2),
+  state_withholding      NUMERIC(12,2),
+  fica                   NUMERIC(12,2),
+  benefit_deductions     NUMERIC(12,2),
+  other_deductions       NUMERIC(12,2),
+  raw                    JSONB,                      -- SUMMARY only. No full line items, no SSN, no bank routing.
+  synced_at              TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (org_id, provider, provider_paystub_id)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_pay_emp  ON payroll_paystubs(payroll_employee_id, pay_date DESC);
+CREATE INDEX IF NOT EXISTS idx_payroll_pay_org  ON payroll_paystubs(org_id, pay_date DESC);
+
+CREATE TABLE IF NOT EXISTS payroll_pto_balances (
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id                 TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  payroll_employee_id    TEXT NOT NULL REFERENCES payroll_employees(id) ON DELETE CASCADE,
+  provider               TEXT NOT NULL,
+  policy_name            TEXT NOT NULL,
+  accrued_hours          NUMERIC(8,2),
+  used_hours             NUMERIC(8,2),
+  balance_hours          NUMERIC(8,2),
+  as_of                  DATE NOT NULL,
+  raw                    JSONB,
+  synced_at              TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (org_id, payroll_employee_id, policy_name)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_pto_emp ON payroll_pto_balances(payroll_employee_id);
+
+-- Idempotent webhook receipts: providers frequently re-deliver events on
+-- transient errors. Recording provider_event_id lets us short-circuit
+-- duplicates before doing any DB writes.
+CREATE TABLE IF NOT EXISTS payroll_webhook_events (
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  org_id                 TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+  provider               TEXT NOT NULL,
+  provider_event_id      TEXT NOT NULL,
+  event_type             TEXT,
+  received_at            TIMESTAMPTZ DEFAULT NOW(),
+  processed_at           TIMESTAMPTZ,
+  status                 TEXT DEFAULT 'received',    -- 'received' | 'processed' | 'error' | 'duplicate'
+  error                  TEXT,
+  UNIQUE (provider, provider_event_id)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_wh_org ON payroll_webhook_events(org_id, received_at DESC);
