@@ -42,37 +42,49 @@ export async function GET(request) {
   const orgId = guard.session.orgId; // authoritative org from session, not the client
   const days = parseDays(url.searchParams.get("days"));
 
-  try {
-    // -- Fanning out in parallel so a heavier per-role or heatmap query
-    //    does not serialize with the small stat lookups. --
-    const [
-      stats, byCategory, byState, byRouting, byRisk,
-      roi, adoption, adoptionByRole, answerQuality,
-      escalationReasons, heatmap,
-    ] = await Promise.all([
-      getTicketStats(orgId, days),
-      getTicketsByCategory(orgId, days),
-      getTicketsByState(orgId, days),
-      getTicketsByRouting(orgId, days),
-      getTicketsByRisk(orgId, days),
-      getRoiSummary(orgId, days),
-      getAdoptionSummary(orgId, days),
-      getAdoptionByRole(orgId, days),
-      getAnswerQualitySummary(orgId, days),
-      getEscalationReasons(orgId, days),
-      getComplianceHeatmap(orgId, days),
-    ]);
-
-    return NextResponse.json({
-      days,
-      stats,
-      byCategory, byState, byRouting,
-      byRisk: byRisk[0] || null,
-      roi, adoption, adoptionByRole, answerQuality,
-      escalationReasons, heatmap,
-    });
-  } catch (err) {
-    console.error("[API] analytics error:", err);
-    return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 });
+  // -- Per-section try/catch instead of Promise.all so ONE failing query
+  //    (e.g. a missing column when the operator has not re-run /api/setup
+  //    after a schema delta) does not blank the entire analytics page.
+  //    Each section returns null on failure and its error surfaces in the
+  //    `sectionErrors` map so we can debug from the network tab. --
+  const sectionErrors = {};
+  async function safe(name, fn) {
+    try { return await fn(); }
+    catch (err) {
+      console.error(`[analytics] ${name} failed:`, err.message);
+      sectionErrors[name] = err.message;
+      return null;
+    }
   }
+
+  const [
+    stats, byCategory, byState, byRouting, byRisk,
+    roi, adoption, adoptionByRole, answerQuality,
+    escalationReasons, heatmap,
+  ] = await Promise.all([
+    safe("stats",              () => getTicketStats(orgId, days)),
+    safe("byCategory",         () => getTicketsByCategory(orgId, days)),
+    safe("byState",            () => getTicketsByState(orgId, days)),
+    safe("byRouting",          () => getTicketsByRouting(orgId, days)),
+    safe("byRisk",             () => getTicketsByRisk(orgId, days)),
+    safe("roi",                () => getRoiSummary(orgId, days)),
+    safe("adoption",           () => getAdoptionSummary(orgId, days)),
+    safe("adoptionByRole",     () => getAdoptionByRole(orgId, days)),
+    safe("answerQuality",      () => getAnswerQualitySummary(orgId, days)),
+    safe("escalationReasons",  () => getEscalationReasons(orgId, days)),
+    safe("heatmap",            () => getComplianceHeatmap(orgId, days)),
+  ]);
+
+  return NextResponse.json({
+    days,
+    stats,
+    byCategory: byCategory || [],
+    byState:    byState    || [],
+    byRouting:  byRouting  || [],
+    byRisk:     Array.isArray(byRisk) ? (byRisk[0] || null) : null,
+    roi, adoption, adoptionByRole, answerQuality,
+    escalationReasons: escalationReasons || [],
+    heatmap:           heatmap           || [],
+    sectionErrors,  // present so the frontend + curl can see which sections failed and why
+  });
 }
