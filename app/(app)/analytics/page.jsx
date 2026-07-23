@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useApp } from "@/app/AppShell";
 
 // ============================================================================
@@ -8,13 +8,292 @@ import { useApp } from "@/app/AppShell";
 //
 // When DB is available: fetches /api/analytics for authoritative org-wide stats.
 // When DB is unavailable (demo mode): derives metrics from localStorage tickets.
-// Time range selector: 7d / 30d / 90d.
+// Time range selector: 7d / 30d / 90d / QTD / YTD.
+//
+// Ships (per ANALYTICS_SPEC_2026_07.md):
+//   Tier 1 cards: ROI/hours saved, Adoption, Answer quality
+//   Tier 2 #4:    Compliance risk heatmap (state x category unanswered)
+//   Tier 2 #5:    Escalation reasons breakdown
+//   CSV export:   one-click download per section
 // ============================================================================
 
 // -- Color ramp for category bars --
 const BAR_COLORS = [
   "#6366f1", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#84cc16",
 ];
+
+// -- Time-range choices exposed in the header. QTD/YTD map to string
+//    aliases the API resolves against the current calendar. --
+const TIME_RANGES = [
+  { key: 7,     label: "7d"  },
+  { key: 30,    label: "30d" },
+  { key: 90,    label: "90d" },
+  { key: "qtd", label: "QTD" },
+  { key: "ytd", label: "YTD" },
+];
+
+// -- Small button-like anchor that streams a CSV download from
+//    /api/analytics/export. Kept inline so the section stays self-contained. --
+function CsvExport({ section, days, label = "Download CSV" }) {
+  const href = `/api/analytics/export?section=${encodeURIComponent(section)}&days=${encodeURIComponent(days)}`;
+  return (
+    <a
+      href={href}
+      className="ml-auto px-2 py-1 text-[10px] font-semibold text-gray-500 border border-gray-200 rounded hover:bg-gray-50"
+      title={`Download ${section} as CSV`}
+    >
+      {label}
+    </a>
+  );
+}
+
+// -- Format seconds as "12s" / "3m 42s" / "1h 07m" for TTFA display. --
+function fmtSecs(s) {
+  const n = Number(s || 0);
+  if (n < 60) return `${Math.round(n)}s`;
+  if (n < 3600) return `${Math.floor(n / 60)}m ${Math.round(n % 60)}s`;
+  return `${Math.floor(n / 3600)}h ${String(Math.floor((n % 3600) / 60)).padStart(2, "0")}m`;
+}
+
+// -- USD money formatter with no cents. --
+const fmtUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+// ============================================================================
+// Tier 1 CARDS — ROI / Adoption / Answer quality
+// Rendered as three side-by-side cards above the classic KPI grid.
+// ============================================================================
+function Tier1Cards({ roi, adoption, answerQuality, days }) {
+  const total          = Number(roi?.total || 0);
+  const auto           = Number(roi?.auto_resolved || 0);
+  const autoRate       = total > 0 ? Math.round((auto / total) * 100) : 0;
+  const minutesSaved   = Number(roi?.minutes_saved || 0);
+  const dollarsSaved   = Number(roi?.dollars_avoided || 0);
+
+  const wau            = Number(adoption?.wau || 0);
+  const mau            = Number(adoption?.mau || 0);
+  const eligible       = Number(adoption?.eligible || 0);
+  const reachPct       = eligible > 0 ? Math.round((mau / eligible) * 100) : 0;
+
+  const answered       = Number(answerQuality?.answered || 0);
+  const cited          = Number(answerQuality?.cited || 0);
+  const citePct        = answered > 0 ? Math.round((cited / answered) * 100) : 0;
+  const thumbsDown     = Number(answerQuality?.thumbs_down || 0);
+  const rated          = Number(answerQuality?.rated || 0);
+  const thumbsDownPct  = rated > 0 ? Math.round((thumbsDown / rated) * 100) : 0;
+  const confAvg        = Number(answerQuality?.conf_avg || 0);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      {/* ---- ROI card ---- */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">ROI · Hours saved</span>
+          <CsvExport section="roi" days={days} />
+        </div>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-3xl font-bold text-gray-900">{autoRate}%</span>
+          <span className="text-xs text-gray-500">auto-resolve rate</span>
+        </div>
+        <div className="text-xs text-gray-600 space-y-0.5 mt-3">
+          <div>{auto.toLocaleString()} auto-resolved of {total.toLocaleString()} queries</div>
+          <div>≈ {Math.round(minutesSaved / 60).toLocaleString()} hours saved</div>
+          <div className="font-semibold text-emerald-700">{fmtUsd.format(dollarsSaved)} avoided at $12/ticket baseline</div>
+        </div>
+      </div>
+
+      {/* ---- Adoption card ---- */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Adoption</span>
+          <CsvExport section="adoption" days={days} />
+        </div>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-3xl font-bold text-gray-900">{mau.toLocaleString()}</span>
+          <span className="text-xs text-gray-500">
+            monthly active {eligible > 0 && <>· {reachPct}% of {eligible.toLocaleString()} eligible</>}
+          </span>
+        </div>
+        <div className="text-xs text-gray-600 space-y-0.5 mt-3">
+          <div>{wau.toLocaleString()} weekly active</div>
+          <div>Time-to-first-answer P50: <span className="font-semibold text-gray-800">{fmtSecs(adoption?.ttfa_p50_secs)}</span></div>
+          <div>Time-to-first-answer P95: <span className="font-semibold text-gray-800">{fmtSecs(adoption?.ttfa_p95_secs)}</span></div>
+        </div>
+      </div>
+
+      {/* ---- Answer quality card ---- */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Answer quality</span>
+          <CsvExport section="answer-quality" days={days} />
+        </div>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-3xl font-bold text-gray-900">{citePct}%</span>
+          <span className="text-xs text-gray-500">answers cite a policy</span>
+        </div>
+        <div className="text-xs text-gray-600 space-y-0.5 mt-3">
+          <div>{answered.toLocaleString()} AI answers · {cited.toLocaleString()} cited</div>
+          <div>Thumbs-down rate: <span className={thumbsDownPct >= 15 ? "font-semibold text-red-600" : "font-semibold text-gray-800"}>{thumbsDownPct}%</span> ({thumbsDown}/{rated})</div>
+          <div>Avg confidence: <span className="font-semibold text-gray-800">{confAvg || 0}/100</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// COMPLIANCE HEATMAP — Tier 2 #4
+// Rows = state, columns = topic bucket, cells = unanswered ticket count
+// Frontend does topic bucketing so the DB layer stays honest about raw data.
+// ============================================================================
+const HEATMAP_BUCKETS = [
+  { key: "leave",      label: "Leave",      match: /leave|pto|vacation|sick/i },
+  { key: "wage",       label: "Wage/Hour",  match: /wage|pay|overtime|comp/i },
+  { key: "harassment", label: "Harassment", match: /harass|discrim|retaliat/i },
+  { key: "ada",        label: "ADA",        match: /ada|disab|accom/i },
+  { key: "fmla",       label: "FMLA",       match: /fmla|parental|medical leave/i },
+  { key: "other",      label: "Other",      match: /./ },  // catch-all last
+];
+
+function bucketFor(category) {
+  const cat = String(category || "");
+  for (const b of HEATMAP_BUCKETS) {
+    if (b.key === "other") continue;
+    if (b.match.test(cat)) return b.key;
+  }
+  return "other";
+}
+
+function ComplianceHeatmap({ heatmap, days }) {
+  // -- Roll raw (state, category, count) triples into state × bucket cells --
+  const { rows, max } = useMemo(() => {
+    const table = new Map();  // state -> { bucket -> count }
+    for (const r of heatmap || []) {
+      const state  = r.state || "unknown";
+      const bucket = bucketFor(r.category);
+      const cell   = table.get(state) || {};
+      cell[bucket] = (cell[bucket] || 0) + Number(r.unanswered || 0);
+      table.set(state, cell);
+    }
+    // -- Sort states by their total unanswered so the hot spots surface first --
+    const rows = Array.from(table.entries())
+      .map(([state, cells]) => {
+        const total = Object.values(cells).reduce((a, b) => a + b, 0);
+        return { state, cells, total };
+      })
+      .sort((a, b) => b.total - a.total);
+    const max = Math.max(1, ...rows.flatMap((r) => Object.values(r.cells)));
+    return { rows, max };
+  }, [heatmap]);
+
+  const cellColor = (n) => {
+    if (!n) return "bg-gray-50 text-gray-300";
+    const ratio = n / max;
+    if (ratio >= 0.66) return "bg-red-500 text-white";
+    if (ratio >= 0.33) return "bg-red-300 text-red-900";
+    if (ratio >= 0.10) return "bg-amber-200 text-amber-900";
+    return "bg-amber-100 text-amber-800";
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-sm font-bold text-gray-900">Compliance risk heatmap</h3>
+        <CsvExport section="heatmap" days={days} />
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        Unanswered or escalated employee questions by state and topic in the last {days === "qtd" ? "quarter to date" : days === "ytd" ? "year to date" : `${days} days`}. Darker cells = more open questions = higher compliance exposure.
+      </p>
+      {rows.length === 0 ? (
+        <div className="text-xs text-gray-400 py-6 text-center">
+          No unanswered questions in this window. Every escalated ticket in this range has a resolution.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr>
+                <th className="text-left font-semibold text-gray-500 uppercase tracking-wide px-2 py-2">State</th>
+                {HEATMAP_BUCKETS.map((b) => (
+                  <th key={b.key} className="text-center font-semibold text-gray-500 uppercase tracking-wide px-2 py-2">{b.label}</th>
+                ))}
+                <th className="text-right font-semibold text-gray-500 uppercase tracking-wide px-2 py-2">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.state} className="border-t border-gray-100">
+                  <td className="px-2 py-2 font-mono text-[11px] text-gray-700">{r.state}</td>
+                  {HEATMAP_BUCKETS.map((b) => {
+                    const n = r.cells[b.key] || 0;
+                    return (
+                      <td key={b.key} className="px-1 py-1 text-center">
+                        <div className={`inline-block min-w-[36px] rounded px-2 py-1 text-[11px] font-semibold ${cellColor(n)}`}>
+                          {n || "—"}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="px-2 py-2 text-right font-semibold text-gray-900">{r.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// ESCALATION REASONS — Tier 2 #5
+// Ranked bar of why the AI handed off to a human.
+// ============================================================================
+const ESCALATION_LABELS = {
+  policy_not_found:         "Policy not found",
+  jurisdiction_not_covered: "Jurisdiction not covered",
+  sensitive_topic:          "Sensitive topic",
+  low_confidence:           "Low confidence",
+  user_requested_human:     "User asked for human",
+  other:                    "Other / unlabeled",
+};
+
+function EscalationReasons({ reasons, days }) {
+  const total = (reasons || []).reduce((a, r) => a + Number(r.count || 0), 0);
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-sm font-bold text-gray-900">Escalation reasons</h3>
+        <CsvExport section="escalation-reasons" days={days} />
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        Why the AI handed off. Fix the top bar first to move your ROI / auto-resolve rate up.
+      </p>
+      {total === 0 ? (
+        <div className="text-xs text-gray-400 py-4 text-center">No escalations recorded in this window.</div>
+      ) : (
+        <div className="space-y-2">
+          {(reasons || []).map((r, i) => {
+            const pct = Math.round((Number(r.count || 0) / total) * 100);
+            return (
+              <div key={r.reason}>
+                <div className="flex items-center justify-between text-xs text-gray-700 mb-1">
+                  <span>{ESCALATION_LABELS[r.reason] || r.reason}</span>
+                  <span className="font-semibold text-gray-900">{r.count} <span className="text-gray-400">({pct}%)</span></span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded">
+                  <div
+                    className="h-2 rounded"
+                    style={{ width: `${pct}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AnalyticsContent() {
   const { tickets, currentUser } = useApp();
@@ -200,7 +479,11 @@ function AnalyticsContent() {
   }
 
   // ============ EMPTY STATE ============
-  if (!hasData && !apiLoading) {
+  // Only bail to the "no data" screen in local mode. In API mode we still
+  // render the full analytics shell (Tier 1 cards, heatmap, escalation)
+  // even at zero volume so admins can see the surface + know what it will
+  // look like when tickets start flowing.
+  if (!isApiMode && !hasData && !apiLoading) {
     return (
       <div className="p-6 max-w-[800px] mx-auto text-center py-20">
         <div className="text-5xl mb-4">📊</div>
@@ -230,19 +513,36 @@ function AnalyticsContent() {
           </p>
         </div>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
-          {[7, 30, 90].map((d) => (
+          {TIME_RANGES.map((r) => (
             <button
-              key={d}
-              onClick={() => setDays(d)}
+              key={r.key}
+              onClick={() => setDays(r.key)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                days === d ? "bg-white text-brand-600 shadow-xs" : "text-gray-500 hover:text-gray-700"
+                days === r.key ? "bg-white text-brand-600 shadow-xs" : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {d}d
+              {r.label}
             </button>
           ))}
         </div>
       </div>
+
+      {/* ============ Tier 1 cards + Heatmap + Escalation reasons ============ */}
+      {/* Only render when we're in API mode; the legacy local-fallback path
+          does not have the ROI/adoption/heatmap datasets and we do not want
+          to fabricate them from context tickets. */}
+      {isApiMode && (
+        <>
+          <Tier1Cards
+            roi={apiStats.roi}
+            adoption={apiStats.adoption}
+            answerQuality={apiStats.answerQuality}
+            days={days}
+          />
+          <ComplianceHeatmap heatmap={apiStats.heatmap} days={days} />
+          <EscalationReasons reasons={apiStats.escalationReasons} days={days} />
+        </>
+      )}
 
       {/* ============ KPI Stat Cards ============ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
