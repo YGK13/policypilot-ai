@@ -14,11 +14,12 @@ import { useRouter } from "next/navigation";
 // ============================================================================
 
 const STEPS = [
-  { id: "company", label: "Company Profile", icon: "🏢" },
-  { id: "jurisdictions", label: "Jurisdictions", icon: "⚖️" },
-  { id: "documents", label: "Upload Policies", icon: "📄" },
-  { id: "ai", label: "AI Configuration", icon: "🧠" },
-  { id: "done", label: "Ready!", icon: "🚀" },
+  { id: "company",       label: "Company Profile",   icon: "🏢" },
+  { id: "jurisdictions", label: "Jurisdictions",     icon: "⚖️" },
+  { id: "documents",     label: "Upload Policies",   icon: "📄" },
+  { id: "ai",            label: "AI Configuration",  icon: "🧠" },
+  { id: "integrations",  label: "Integrations",      icon: "🔌" },
+  { id: "done",          label: "Ready!",            icon: "🚀" },
 ];
 
 // ============================================================================
@@ -292,8 +293,25 @@ function OnboardingContent() {
       addToast("warning", "Setup Saved Locally", "Settings saved to this device. Database sync failed — re-save from Settings page.");
       addAudit("ONBOARDING_COMPLETE", `${company.name} setup complete (DB sync failed). ${selectedJurisdictions.length} jurisdictions.`, "warning");
     }
-    router.push("/");
+    // -- Route to the real dashboard, NOT the marketing homepage. Same
+    //    class of bug we hit in Sidebar earlier: "/" resolves to
+    //    app/(marketing)/page.jsx. Admin needs to land at /dashboard. --
+    router.push("/dashboard");
   }, [company, selectedJurisdictions, uploadedFiles, aiConfig, orgId, setSettings, addAudit, addToast, router]);
+
+  // -- Payroll provider status for the Integrations step. Loaded lazily so
+  //    the earlier steps do not pay for a network round trip. --
+  const [payrollStatus, setPayrollStatus] = useState(null);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  useEffect(() => {
+    if (STEPS[step]?.id !== "integrations" || payrollStatus !== null) return;
+    setPayrollLoading(true);
+    fetch("/api/payroll/status")
+      .then((r) => r.ok ? r.json() : { providers: [] })
+      .then((d) => setPayrollStatus(d.providers || []))
+      .catch(() => setPayrollStatus([]))
+      .finally(() => setPayrollLoading(false));
+  }, [step, payrollStatus]);
 
   const currentStep = STEPS[step];
   const inputCls = "w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400";
@@ -523,7 +541,66 @@ function OnboardingContent() {
             </>
           )}
 
-          {/* -- Step 5: Done -- */}
+          {/* -- Step 5: Integrations (optional) -- */}
+          {currentStep.id === "integrations" && (
+            <>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Connect payroll & HRIS (optional)</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Sync employees, paystubs and PTO from Gusto, BambooHR, QuickBooks or Finch so AI HR Pilot can cite
+                real data in its answers. Setup is one-time per provider and can be done later from the Integrations page.
+              </p>
+
+              {payrollLoading && (
+                <div className="text-sm text-gray-500 py-4 text-center">Loading provider status...</div>
+              )}
+
+              {!payrollLoading && payrollStatus && (
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  {payrollStatus.map((p) => {
+                    const serverReady = !!p.config?.ready;
+                    const connected   = p.connection && p.connection.status === "active";
+                    let chip;
+                    if (!serverReady) chip = { label: "Server setup required", cls: "bg-amber-100 text-amber-800" };
+                    else if (!connected) chip = { label: "Ready to connect", cls: "bg-blue-100 text-blue-800" };
+                    else chip = { label: "Connected", cls: "bg-emerald-100 text-emerald-800" };
+
+                    return (
+                      <div key={p.name} className="rounded-lg border border-gray-200 p-3 bg-white">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-sm font-semibold text-gray-900">{p.label}</div>
+                          <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${chip.cls}`}>{chip.label}</span>
+                        </div>
+                        <div className="text-[11px] text-gray-500">
+                          {p.config?.authModel === "api_key" ? "API key" : "OAuth 2.0"}
+                          {connected && p.connection.lastSyncAt && (
+                            <> · last sync {new Date(p.connection.lastSyncAt).toLocaleString()}</>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <a
+                  href="/integrations"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors"
+                >
+                  Set up integrations →
+                </a>
+                <span className="text-xs text-gray-500">Opens in a new tab so you don't lose your place. Come back and click Finish Setup.</span>
+              </div>
+
+              <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
+                <span className="font-semibold">Skip for now?</span> Fine. AI HR Pilot works without payroll sync — answers just won't cite real paystubs or PTO balances until a provider is connected.
+              </div>
+            </>
+          )}
+
+          {/* -- Step 6: Done -- */}
           {currentStep.id === "done" && (
             <div className="text-center py-6">
               <div className="text-5xl mb-4">🚀</div>
