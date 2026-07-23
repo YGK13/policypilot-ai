@@ -155,6 +155,31 @@ function ChatContent() {
 
     // -- Auto-create ticket --
     const nowFull = new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    // -- Analytics-loading fields (see ANALYTICS_SPEC_2026_07.md Tier 1/2):
+    //    was_auto_resolved feeds the ROI card's auto-resolve rate + hours-
+    //    saved calc. Explicit boolean so the query does not have to derive
+    //    from status+routing.
+    //    escalation_reason feeds the Tier 2 escalation-reasons bar. Inferred
+    //    from the routing decision + flags + policy match + confidence. --
+    const isAutoResolved = resp.routing === "auto" || resp.routing === "auto_enhanced";
+
+    let escalationReason = null;
+    if (!isAutoResolved) {
+      const flagStr = (resp.flags || []).map(String).join(" ").toLowerCase();
+      if (/harass|discrim|retali|adaa/i.test(flagStr) || resp.routing === "legal") {
+        escalationReason = "sensitive_topic";
+      } else if (!resp.policyId) {
+        escalationReason = "policy_not_found";
+      } else if (Number(resp.confidence || 0) < 50) {
+        escalationReason = "low_confidence";
+      } else if (/jurisdiction|state/i.test(flagStr)) {
+        escalationReason = "jurisdiction_not_covered";
+      } else {
+        escalationReason = "other";
+      }
+    }
+
     const ticket = {
       id: ticketId,
       query: q,
@@ -173,6 +198,12 @@ function ChatContent() {
       assignee: resp.routing === "legal" ? "Legal Team" : resp.routing === "hr" ? "HR Business Partner" : "Auto-resolved",
       satisfaction: null,
       resolution: resp.routing === "auto" ? "Resolved by AI" : "Pending human review",
+      // -- Analytics loading --
+      aiResponse:       resp.answer || null,
+      aiConfidence:     resp.confidence != null ? Math.round(Number(resp.confidence)) : null,
+      policyId:         resp.policyId || null,
+      wasAutoResolved:  isAutoResolved,
+      escalationReason: escalationReason,
     };
     setTickets((prev) => [ticket, ...prev]);
 
