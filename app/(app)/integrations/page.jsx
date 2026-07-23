@@ -7,7 +7,332 @@ import CONNECTORS from "@/lib/data/connectors";
 import Modal from "@/components/ui/Modal";
 
 // ============================================================================
-// INTEGRATIONS PAGE — Categorized connector grid with config modals
+// INTEGRATIONS PAGE
+//
+// Two sections, top-to-bottom:
+//   1. Live payroll & HRIS sync — Gusto / BambooHR / QBO / Finch. Real
+//      OAuth or API-key flows. Config + connection state comes from
+//      /api/payroll/status so nothing is hidden or optimistic.
+//   2. Directory placeholders — every other provider (Workday, ADP direct,
+//      Slack, GitHub, etc.). Saves credentials for future live-sync builds
+//      but does not pull data today. Clearly labeled.
+// ============================================================================
+
+// -- Provider hex colors for the live-sync cards --
+const LIVE_COLORS = {
+  gusto:    "#F45D48",
+  bamboohr: "#73C41D",
+  qbo:      "#2CA01C",
+  finch:    "#6C63FF",
+};
+
+// -- BambooHR-only credential fields for the API-key connect modal --
+const BAMBOOHR_FIELDS = [
+  { key: "subdomain", label: "Subdomain", placeholder: "your-company (from your-company.bamboohr.com)", type: "text" },
+  { key: "apiKey",    label: "API key",   placeholder: "Bamboo API key",                                 type: "password" },
+];
+
+// ============================================================================
+// PayrollProvidersSection — the honest live-sync surface
+// ============================================================================
+function PayrollProvidersSection({ addToast }) {
+  const [providers, setProviders] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);   // provider name whose Setup Guide is open
+  const [connectingApiKey, setConnectingApiKey] = useState(null); // provider name for the API-key modal
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/payroll/status");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      setProviders(data.providers || []);
+    } catch (err) {
+      addToast("error", "Could not load payroll provider status", err.message);
+      setProviders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const doDisconnect = useCallback(async (name) => {
+    if (!window.confirm(`Disconnect ${name}? All synced payroll data for this provider will be wiped from your org within a minute.`)) return;
+    try {
+      const res = await fetch(`/api/payroll/sync?provider=${encodeURIComponent(name)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Disconnect failed (${res.status})`);
+      }
+      addToast("success", "Disconnected", `${name} data wiped and connection revoked.`);
+      load();
+    } catch (err) {
+      addToast("error", "Disconnect failed", err.message);
+    }
+  }, [addToast, load]);
+
+  const doForceSync = useCallback(async (name) => {
+    try {
+      const res = await fetch(`/api/payroll/sync?provider=${encodeURIComponent(name)}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      addToast("success", "Sync complete",
+        `${name}: ${data.stats?.employees || 0} employees, ${data.stats?.paystubs || 0} paystubs.`);
+      load();
+    } catch (err) {
+      addToast("error", "Sync failed", err.message);
+    }
+  }, [addToast, load]);
+
+  if (loading) {
+    return (
+      <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+        Loading payroll provider status...
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-base font-bold text-gray-900">Live payroll & HRIS sync</h2>
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+          Real OAuth · Per-org · Read-only
+        </span>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        These four providers pull employees, paystubs and PTO on a nightly cadence plus webhook updates. Each requires
+        one-time setup on the server (developer app + env vars) before the Connect button will work. Missing setup is
+        surfaced honestly below with the exact env vars and portal links you need.
+      </p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {(providers || []).map((p) => {
+          const serverReady = !!p.config?.ready;
+          const connected   = p.connection && p.connection.status === "active";
+          const expanded_   = expanded === p.name;
+          const color       = LIVE_COLORS[p.name] || "#6b7280";
+
+          // -- Chip states --
+          let chip;
+          if (!serverReady) {
+            chip = { label: "Server setup required", cls: "bg-amber-100 text-amber-800" };
+          } else if (!connected) {
+            chip = { label: "Ready to connect", cls: "bg-blue-100 text-blue-800" };
+          } else if (p.connection?.lastSyncStatus === "error") {
+            chip = { label: "Sync failing", cls: "bg-red-100 text-red-800" };
+          } else {
+            chip = { label: "Connected", cls: "bg-emerald-100 text-emerald-800" };
+          }
+
+          return (
+            <div key={p.name} className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
+              {/* -- Header row: icon, name, chip -- */}
+              <div className="flex items-start gap-3 mb-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ backgroundColor: color }}
+                >
+                  {p.label.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-gray-900">{p.label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5 capitalize">{p.config?.authModel === "api_key" ? "API key" : "OAuth 2.0"}</div>
+                </div>
+                <span className={`px-2 py-0.5 text-[10px] font-semibold rounded ${chip.cls}`}>{chip.label}</span>
+              </div>
+
+              {/* -- Connection details -- */}
+              {connected && (
+                <div className="mb-3 text-xs text-gray-600 space-y-0.5">
+                  {p.connection.providerAccount && (
+                    <div>Account: <span className="font-mono text-gray-800">{p.connection.providerAccount}</span></div>
+                  )}
+                  {p.connection.lastSyncAt && (
+                    <div>Last synced: {new Date(p.connection.lastSyncAt).toLocaleString()}</div>
+                  )}
+                  {p.connection.lastSyncError && (
+                    <div className="text-red-600">Last error: {p.connection.lastSyncError.slice(0, 100)}</div>
+                  )}
+                </div>
+              )}
+
+              {/* -- Action row -- */}
+              <div className="flex flex-wrap gap-2">
+                {!serverReady && (
+                  <button
+                    onClick={() => setExpanded(expanded_ ? null : p.name)}
+                    className="px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100"
+                  >
+                    {expanded_ ? "Hide setup guide" : "Show setup guide"}
+                  </button>
+                )}
+                {serverReady && !connected && p.config.authModel === "oauth2" && (
+                  <button
+                    onClick={() => { window.location.href = `/api/payroll/oauth/${p.name}`; }}
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+                  >
+                    Connect {p.label}
+                  </button>
+                )}
+                {serverReady && !connected && p.config.authModel === "api_key" && (
+                  <button
+                    onClick={() => setConnectingApiKey(p.name)}
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+                  >
+                    Enter {p.label} credentials
+                  </button>
+                )}
+                {connected && (
+                  <>
+                    <button
+                      onClick={() => doForceSync(p.name)}
+                      className="px-3 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
+                    >
+                      Sync now
+                    </button>
+                    <button
+                      onClick={() => doDisconnect(p.name)}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100"
+                    >
+                      Disconnect + wipe
+                    </button>
+                  </>
+                )}
+                <a
+                  href={p.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  Docs ↗
+                </a>
+              </div>
+
+              {/* -- Expandable setup guide (only meaningful when server-config missing) -- */}
+              {expanded_ && !serverReady && (
+                <div className="mt-4 border-t border-gray-100 pt-4 text-xs text-gray-700 space-y-3">
+                  <div>
+                    <div className="font-semibold text-gray-900 mb-1">1. Create a developer app</div>
+                    <a href={p.portalUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">
+                      {p.portalUrl} ↗
+                    </a>
+                  </div>
+                  {p.redirectUriHint && (
+                    <div>
+                      <div className="font-semibold text-gray-900 mb-1">2. Register this redirect URI in the app</div>
+                      <div className="font-mono bg-gray-50 border border-gray-200 rounded px-2 py-1 select-all">
+                        {p.redirectUriHint}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-semibold text-gray-900 mb-1">
+                      {p.redirectUriHint ? "3." : "2."} Set these env vars in Vercel (Production + Preview)
+                    </div>
+                    <ul className="list-disc list-inside space-y-0.5 font-mono text-[11px]">
+                      {(p.config?.missing || []).map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 mb-1">
+                      {p.redirectUriHint ? "4." : "3."} Redeploy, then reload this page
+                    </div>
+                    <div className="text-gray-500">The Connect button will unlock automatically.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* -- API-key connect modal (BambooHR today; more later) -- */}
+      {connectingApiKey && (
+        <ApiKeyConnectModal
+          providerName={connectingApiKey}
+          onClose={() => setConnectingApiKey(null)}
+          onConnected={() => { setConnectingApiKey(null); load(); }}
+          addToast={addToast}
+        />
+      )}
+    </div>
+  );
+}
+
+// -- Modal specific to BambooHR-style API-key auth. Kept in this file
+//    because it is only ever used from the live-sync section above. --
+function ApiKeyConnectModal({ providerName, onClose, onConnected, addToast }) {
+  const [creds, setCreds] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const fields = providerName === "bamboohr" ? BAMBOOHR_FIELDS : [];
+
+  const submit = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/payroll/connect/${encodeURIComponent(providerName)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentials: creds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.reason || data.error || "Credentials rejected");
+      addToast("success", `${providerName} connected`, "Credentials validated with the provider.");
+      onConnected();
+    } catch (err) {
+      addToast("error", "Connection failed", err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [providerName, creds, addToast, onConnected]);
+
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={`Connect ${providerName}`}
+      size="md"
+      footer={
+        <>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={submitting}
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60"
+          >
+            {submitting ? "Validating..." : "Validate & connect"}
+          </button>
+        </>
+      }
+    >
+      <p className="text-xs text-gray-500 mb-4">
+        Credentials are validated with a live call to the provider before being stored. If they fail, nothing is persisted.
+      </p>
+      <div className="space-y-3">
+        {fields.map((f) => (
+          <div key={f.key}>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{f.label}</label>
+            <input
+              type={f.type}
+              value={creds[f.key] || ""}
+              onChange={(e) => setCreds((prev) => ({ ...prev, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              autoComplete="off"
+            />
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 // ============================================================================
 
 // -- Category tab definitions with display labels --
@@ -225,25 +550,19 @@ function IntegrationsContent() {
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
-      {/* ============ Beta banner — honest disclosure ============ */}
-      {/* We list many HRIS/ATS/comm/storage providers below because pilot
-          buyers ask for them. Today the "Connect" flow persists credentials
-          and a status flag; it does NOT yet pull employees, run payroll
-          webhooks or sync PTO for every provider. Real one-way sync ships
-          per-provider in the payroll batch (Gusto, Rippling, QuickBooks
-          Payroll first). This banner exists so nobody mistakes credential
-          capture for a live integration. */}
-      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      {/* ============ Live payroll & HRIS sync (honest, real backends) ============ */}
+      <PayrollProvidersSection addToast={addToast} />
+
+      {/* ============ Directory placeholders banner ============ */}
+      <div className="mb-5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
         <div className="flex items-start gap-2">
-          <span className="text-base leading-none mt-0.5">{"⚠"}</span>
+          <span className="text-base leading-none mt-0.5">{"📇"}</span>
           <div>
-            <div className="font-semibold">Live sync rolling out per provider</div>
-            <div className="mt-0.5 text-amber-800/90">
-              Providers marked <span className="inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded align-middle">● Live sync</span> connect
-              via real OAuth and pull employee, paystub and PTO data on a nightly cadence plus
-              webhook updates. Providers without that badge capture credentials for future
-              live-sync builds. Next up: BambooHR, QuickBooks Payroll, Finch (ADP/Paychex/Paylocity/UKG),
-              then Rippling.
+            <div className="font-semibold text-gray-900">Directory placeholders</div>
+            <div className="mt-0.5 text-gray-600">
+              The connectors below save credentials to the integrations table for a future live-sync build.
+              They do NOT currently pull data. For real payroll/HRIS sync, use Gusto, BambooHR, QuickBooks
+              Online or Finch in the section above.
             </div>
           </div>
         </div>

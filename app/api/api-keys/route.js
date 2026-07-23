@@ -40,9 +40,23 @@ export async function GET(request) {
 // Body: { orgId, name, createdBy? }
 // Returns: { key } — raw key shown ONCE, then never again
 // ============================================================================
+// -- KILL SWITCH: no public API to validate these keys exists yet, so
+//    minting them just produces credentials that will always fail. Flip
+//    this to true when the /v1/query endpoint ships and add the matching
+//    validator middleware. Until then, POST returns 503. UI also disables
+//    the Create button (app/(app)/api-keys/page.jsx). --
+const PUBLIC_API_LIVE = false;
+
 export async function POST(request) {
   const guard = await requireRole("hr_admin");
   if (guard.error) return guard.error;
+
+  if (!PUBLIC_API_LIVE) {
+    return NextResponse.json({
+      error: "Public API is not yet live. Key creation is disabled until /v1/query ships.",
+      code: "public_api_not_live",
+    }, { status: 503 });
+  }
 
   try {
     const body = await request.json();

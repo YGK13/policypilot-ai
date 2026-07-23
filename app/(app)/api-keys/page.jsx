@@ -175,6 +175,27 @@ function ApiKeysContent() {
         />
       )}
 
+      {/* ============ Honest "not live yet" banner ============ */}
+      {/* API key generation currently produces credentials that no server-
+          side endpoint validates: there is no public /v1/query API today.
+          Rather than let admins mint keys that will silently fail against
+          nothing, we disable creation and surface the reality. When the
+          public API ships, remove `PUBLIC_API_LIVE = false` here and
+          in app/api/api-keys/route.js's POST guard. */}
+      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="flex items-start gap-2">
+          <span className="text-base leading-none mt-0.5">{"⚠"}</span>
+          <div>
+            <div className="font-semibold">Public API is not yet live</div>
+            <div className="mt-0.5 text-amber-800/90">
+              This page is for a future customer-facing API that lets HR tools query AI HR Pilot programmatically.
+              Key creation is disabled until that endpoint ships so nobody mints credentials that fail silently.
+              Existing keys (if any) remain listed so they can be revoked.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ============ Header ============ */}
       <div className="flex items-center justify-between mb-5">
         <div>
@@ -184,10 +205,11 @@ function ApiKeysContent() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
-          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors"
+          disabled
+          title="Public API not yet live"
+          className="px-4 py-2 text-xs font-semibold text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed"
         >
-          + Create Key
+          + Create Key (disabled)
         </button>
       </div>
 

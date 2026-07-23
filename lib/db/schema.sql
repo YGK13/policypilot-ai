@@ -100,6 +100,22 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(org_id, created_at DESC);
 
 -- ============================================================================
+-- ANALYTICS SCHEMA DELTAS (added 2026-07-21 for Track A analytics work).
+-- These are additive and safe to re-run: ADD COLUMN IF NOT EXISTS is
+-- idempotent on Postgres 9.6+ (Neon is far past that).
+--
+-- escalation_reason  -- one of the six spec buckets, filled by the routing
+--                       logic when a ticket is escalated. Powers the
+--                       Tier 2 escalation-reasons breakdown.
+-- was_auto_resolved  -- explicit flag rather than deriving from status +
+--                       routing at query time; makes the ROI card cheap.
+-- ============================================================================
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS escalation_reason TEXT;   -- policy_not_found | jurisdiction_not_covered | sensitive_topic | low_confidence | user_requested_human | other
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS was_auto_resolved BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_tickets_escalation_reason ON tickets(org_id, escalation_reason) WHERE escalation_reason IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tickets_auto_resolved ON tickets(org_id, was_auto_resolved);
+
+-- ============================================================================
 -- CASE NOTES — threaded notes on escalated tickets
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS case_notes (
