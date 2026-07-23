@@ -527,6 +527,41 @@ function AnalyticsContent() {
         </div>
       </div>
 
+      {/* ============ Diagnostic banner: distinguish empty-window from empty-org ============ */}
+      {/* If the ORG has zero tickets ever, no time window will help — send the
+          admin to /chat with a clear explanation. If the org has tickets but
+          this window is empty, hint at expanding the window. This keeps
+          admins from staring at a screen of zeros with no signal. */}
+      {isApiMode && apiStats.debug && (() => {
+        const total = Number(apiStats.stats?.total || 0);
+        if (!apiStats.debug.orgHasAnyTickets) {
+          return (
+            <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <div className="font-semibold">No tickets logged for your organization yet</div>
+              <div className="mt-1 text-blue-800/90">
+                Analytics populate automatically once employees start asking the AI questions.
+                <a href="/chat" className="underline font-semibold ml-1">Ask a question in AI Chat</a> to seed the data.
+                If you have been chatting already but nothing is landing, check your browser console for
+                <span className="font-mono px-1"> [Chat] Ticket persist failed </span>
+                messages — those show up as red toasts now, not silent warnings.
+              </div>
+            </div>
+          );
+        }
+        if (total === 0 && apiStats.debug.orgTicketTotal > 0) {
+          return (
+            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              <div className="font-semibold">No tickets in this time window</div>
+              <div className="mt-1 text-gray-600">
+                Your organization has {apiStats.debug.orgTicketTotal.toLocaleString()} ticket{apiStats.debug.orgTicketTotal === 1 ? "" : "s"} logged, but none inside the last {days === "qtd" ? "quarter" : days === "ytd" ? "year" : `${days} days`}.
+                Try QTD or YTD above to see them.
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {/* ============ Tier 1 cards + Heatmap + Escalation reasons ============ */}
       {/* Only render when we're in API mode; the legacy local-fallback path
           does not have the ROI/adoption/heatmap datasets and we do not want

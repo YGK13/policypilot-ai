@@ -207,12 +207,32 @@ function ChatContent() {
     };
     setTickets((prev) => [ticket, ...prev]);
 
-    // -- Persist ticket to Neon Postgres (fire-and-forget: local state is source of truth) --
+    // -- Persist ticket to Neon Postgres. Previously fire-and-forget with a
+    //    console.warn on failure; the analytics page reported 0 tickets after
+    //    real chat activity because these writes were 400'ing silently (no
+    //    org context in the session, no user_id link, or the ticket body
+    //    was missing required fields). Now await + surface error so it is
+    //    IMPOSSIBLE for a chat question to appear resolved on screen while
+    //    silently dropping from the DB. --
     fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orgId: orgId || "default", ticket }),
-    }).catch((err) => console.warn("[Chat] Ticket persist failed:", err.message));
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          let msg = `HTTP ${r.status}`;
+          try { const d = await r.json(); msg = d.error || d.reason || msg; } catch { /* body not json */ }
+          console.warn("[Chat] Ticket persist failed:", msg);
+          addToast("error", "Chat logged locally only",
+            `Ticket did NOT save to database (${msg}). It won't count in Analytics. Check Clerk session or org bootstrap.`);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Chat] Ticket persist network error:", err.message);
+        addToast("error", "Chat logged locally only",
+          `Network error persisting ticket: ${err.message}. It won't count in Analytics.`);
+      });
 
     addAudit(
       "RESPONSE_SENT",

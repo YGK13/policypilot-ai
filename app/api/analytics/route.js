@@ -75,6 +75,20 @@ export async function GET(request) {
     safe("heatmap",            () => getComplianceHeatmap(orgId, days)),
   ]);
 
+  // -- Distinguish "no data in this window" (real empty state) from "no
+  //    data in the org, period" (chat has never logged a ticket for this
+  //    org, likely a persist bug). Cheap EXISTS query. --
+  let orgHasAnyTickets = false;
+  let orgTicketTotal   = 0;
+  try {
+    const sql = (await import("@/lib/db")).getDb();
+    const rows = await sql`SELECT COUNT(*)::int AS n FROM tickets WHERE org_id = ${orgId}`;
+    orgTicketTotal   = rows[0]?.n || 0;
+    orgHasAnyTickets = orgTicketTotal > 0;
+  } catch (err) {
+    sectionErrors.debug = err.message;
+  }
+
   return NextResponse.json({
     days,
     stats,
@@ -85,6 +99,11 @@ export async function GET(request) {
     roi, adoption, adoptionByRole, answerQuality,
     escalationReasons: escalationReasons || [],
     heatmap:           heatmap           || [],
+    debug: {
+      orgId,
+      orgHasAnyTickets,
+      orgTicketTotal,
+    },
     sectionErrors,  // present so the frontend + curl can see which sections failed and why
   });
 }
