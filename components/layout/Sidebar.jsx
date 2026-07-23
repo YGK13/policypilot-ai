@@ -15,7 +15,7 @@ const NAV_GROUPS = [
     label: 'Core',
     adminOnly: false,
     items: [
-      { key: 'dashboard',    href: '/',              icon: '📊', label: 'Dashboard' },
+      { key: 'dashboard',    href: '/dashboard',     icon: '📊', label: 'Dashboard' },
       { key: 'chat',         href: '/chat',          icon: '💬', label: 'AI Chat' },
       { key: 'self-service', href: '/self-service',  icon: '🙋', label: 'Self-Service' },
       { key: 'tickets',      href: '/tickets',       icon: '🎫', label: 'Ticket Queue', badgeKey: 'tickets' },
