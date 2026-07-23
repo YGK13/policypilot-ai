@@ -22,6 +22,7 @@ import { join } from "path";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import { isDbAvailable, getDb } from "@/lib/db";
+import { getSessionRole } from "@/lib/auth/rbac";
 
 // -- DDL MUST run over Neon's WebSocket transport. The HTTP driver
 //    (@neondatabase/serverless's neon() tagged-template) silently drops
@@ -62,24 +63,50 @@ const EXPECTED_TABLES = [
   "payroll_webhook_events",
 ];
 
-// -- Verify caller is authorized: must supply SETUP_SECRET in Authorization header --
-function isAuthorized(request) {
+// -- Two auth paths, either sufficient:
+//    1. A signed-in hr_admin Clerk session. The onboarding wizard POSTs
+//       here from the browser using the Clerk cookies, which is way
+//       simpler than shipping SETUP_SECRET to the client as a
+//       NEXT_PUBLIC_ var (that leaks the secret into the JS bundle).
+//    2. A SETUP_SECRET bearer token, for curl / cron / server-to-server
+//       calls that do not have a Clerk session.
+//    Either alone is enough. --
+async function isAuthorized(request) {
+  // -- Bearer path --
   const secret = process.env.SETUP_SECRET;
-  // If no secret is configured, only allow in development
-  if (!secret) {
-    return process.env.NODE_ENV === "development";
-  }
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  return token === secret;
+  if (secret && token && token === secret) return { ok: true, via: "bearer" };
+
+  // -- Clerk hr_admin path --
+  try {
+    const session = await getSessionRole();
+    if (session?.authed && session.role === "hr_admin") {
+      return { ok: true, via: "session", clerkId: session.clerkId };
+    }
+  } catch {
+    // fall through to unauthorized
+  }
+
+  // -- Dev fallback: if neither auth path is configured AND we are running
+  //    outside production, allow through so a fresh clone works. --
+  if (!secret && process.env.NODE_ENV !== "production") {
+    return { ok: true, via: "dev-fallback" };
+  }
+
+  return { ok: false, reason: "no valid Clerk hr_admin session and no matching SETUP_SECRET bearer token" };
 }
 
 // ============================================================================
 // GET /api/setup — Check which tables exist vs. are missing
 // ============================================================================
 export async function GET(request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized — set SETUP_SECRET env var and pass it as Bearer token" }, { status: 401 });
+  const authz = await isAuthorized(request);
+  if (!authz.ok) {
+    return NextResponse.json({
+      error: "Unauthorized",
+      reason: authz.reason || "sign in as an hr_admin, or send SETUP_SECRET as a Bearer token",
+    }, { status: 401 });
   }
 
   if (!isDbAvailable()) {
@@ -127,8 +154,12 @@ export async function GET(request) {
 // POST /api/setup — Apply schema.sql to Neon (idempotent)
 // ============================================================================
 export async function POST(request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized — set SETUP_SECRET env var and pass it as Bearer token" }, { status: 401 });
+  const authz = await isAuthorized(request);
+  if (!authz.ok) {
+    return NextResponse.json({
+      error: "Unauthorized",
+      reason: authz.reason || "sign in as an hr_admin, or send SETUP_SECRET as a Bearer token",
+    }, { status: 401 });
   }
 
   if (!isDbAvailable()) {

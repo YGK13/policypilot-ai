@@ -60,22 +60,37 @@ function SystemStatus() {
   const initDb = useCallback(async () => {
     setInitializing(true);
     try {
+      // -- No Authorization header. /api/setup accepts the admin's Clerk
+      //    session via cookies for hr_admin, which is safer than shipping
+      //    SETUP_SECRET as NEXT_PUBLIC_* (that would leak into the JS
+      //    bundle). curl / cron callers can still use the bearer path. --
       const res = await fetch("/api/setup", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SETUP_SECRET || ""}`,
-        },
+        credentials: "same-origin",
       });
       const data = await res.json();
-      if (data.success) {
-        addToast("success", "Database Initialized", `${data.tablesReady} tables created successfully`);
-        await fetchHealth();
-      } else {
-        addToast("warning", "Partial Init", data.message || "Some tables may be missing");
-        await fetchHealth();
+
+      if (res.status === 401) {
+        addToast("error", "Not authorized",
+          data.reason || "Sign in as an hr_admin, or set SETUP_SECRET and pass as Bearer token.");
+        return;
       }
-    } catch {
-      addToast("error", "Init Failed", "Could not reach /api/setup");
+
+      if (data.success) {
+        addToast("success", "Database Initialized", `${data.tablesReady} tables ready.`);
+      } else {
+        // -- Surface the actual reason instead of a generic "Partial Init".
+        //    data.errors is a count, data.details is the per-statement list
+        //    including the first failure's error message. --
+        const firstErr = (data.details || []).find((d) => d.status === "error");
+        const detail = firstErr
+          ? `${data.errors || 0} statement(s) failed. First: ${firstErr.error}`
+          : (data.message || "Some tables still missing.");
+        addToast("warning", "Init incomplete", detail);
+      }
+      await fetchHealth();
+    } catch (err) {
+      addToast("error", "Init Failed", err.message || "Could not reach /api/setup");
     } finally {
       setInitializing(false);
     }
