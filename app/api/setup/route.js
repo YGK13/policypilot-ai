@@ -19,7 +19,22 @@
 import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { isDbAvailable, getDb } from "@/lib/db";
+
+// -- DDL MUST run over Neon's WebSocket transport. The HTTP driver
+//    (@neondatabase/serverless's neon() tagged-template) silently drops
+//    CREATE TABLE / CREATE INDEX / ALTER TABLE for statements that run
+//    inside its implicit auto-commit wrapper — it returns success but
+//    the tables never appear in pg_tables. We saw this in production
+//    when self_service_requests, and later the five payroll_* tables,
+//    all "succeeded" via sql.unsafe() but never got created.
+//
+//    The WebSocket Pool transport does not have this defect. In Node/
+//    serverless, Pool needs a WebSocket constructor injected explicitly
+//    (browsers already have one; Node does not). --
+neonConfig.webSocketConstructor = ws;
 
 // -- Tables we expect to exist after setup, in dependency order.
 //    Keep this in sync with lib/db/schema.sql AND with the identical list
@@ -123,49 +138,51 @@ export async function POST(request) {
     }, { status: 503 });
   }
 
+  // -- Read schema.sql from the filesystem (only works server-side) --
+  const schemaPath = join(process.cwd(), "lib", "db", "schema.sql");
+  let schemaSql;
   try {
-    const sql = getDb();
+    schemaSql = readFileSync(schemaPath, "utf-8");
+  } catch (readErr) {
+    return NextResponse.json({
+      success: false,
+      error: `Could not read schema file: ${readErr.message}`,
+    }, { status: 500 });
+  }
 
-    // -- Read schema.sql from the filesystem (only works server-side) --
-    const schemaPath = join(process.cwd(), "lib", "db", "schema.sql");
-    let schemaSql;
-    try {
-      schemaSql = readFileSync(schemaPath, "utf-8");
-    } catch (readErr) {
-      return NextResponse.json({
-        success: false,
-        error: `Could not read schema file: ${readErr.message}`,
-      }, { status: 500 });
-    }
+  // -- Split into individual statements on semicolon boundaries.
+  //    Strip comment lines and blank lines. Ignore empty statements. --
+  const statements = schemaSql
+    .split(";")
+    .map((stmt) =>
+      stmt
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--") && line.trim() !== "")
+        .join("\n")
+        .trim()
+    )
+    .filter((stmt) => stmt.length > 0);
 
-    // -- Split into individual statements on semicolon boundaries.
-    //    Strip comment lines and blank lines. Ignore empty statements. --
-    const statements = schemaSql
-      .split(";")
-      .map((stmt) =>
-        stmt
-          .split("\n")
-          .filter((line) => !line.trim().startsWith("--") && line.trim() !== "")
-          .join("\n")
-          .trim()
-      )
-      .filter((stmt) => stmt.length > 0);
+  // -- Prefer the unpooled URL for DDL. The pooled URL runs through
+  //    PgBouncer in transaction mode, which does not tolerate every
+  //    session-level thing DDL wants to do. --
+  const ddlConnStr = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+  const pool = new Pool({ connectionString: ddlConnStr });
+  const results = [];
+  let applied = 0;
+  let skipped = 0;
+  let errors = 0;
 
-    const results = [];
-    let applied = 0;
-    let skipped = 0;
-    let errors = 0;
-
+  try {
     for (const stmt of statements) {
       // -- Skip pure-comment blocks --
       if (!stmt.match(/CREATE|ALTER|INSERT|DROP|GRANT|INDEX/i)) {
         skipped++;
         continue;
       }
-
       try {
-        // -- Use sql.unsafe for raw DDL (Neon tagged template doesn't support DDL) --
-        await sql.unsafe(stmt + ";");
+        // -- pool.query executes over WebSocket, which does NOT drop DDL. --
+        await pool.query(stmt + ";");
         applied++;
         results.push({ stmt: stmt.slice(0, 80) + (stmt.length > 80 ? "…" : ""), status: "ok" });
       } catch (stmtErr) {
@@ -180,7 +197,8 @@ export async function POST(request) {
       }
     }
 
-    // -- Verify tables after setup --
+    // -- Verify tables after setup (HTTP driver is fine for SELECT). --
+    const sql = getDb();
     const existingRows = await sql`
       SELECT tablename
       FROM pg_tables
@@ -210,5 +228,9 @@ export async function POST(request) {
   } catch (err) {
     console.error("[Setup] POST error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } finally {
+    // -- Always close the pool. Fluid Compute reuses instances so a
+    //    leaked pool would strand a WebSocket per invocation. --
+    try { await pool.end(); } catch { /* ignore */ }
   }
 }
