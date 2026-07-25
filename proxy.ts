@@ -14,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   "/",                  // Public landing page (marketing/SEO)
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/api/health",        // Uptime monitors + admin dashboards need unauth access
   "/api/webhooks(.*)",  // Webhook endpoints (use their own signature verification)
   "/api/drip(.*)",      // Drip engine forwarder routes (server-to-server, no Clerk session)
   "/api/setup(.*)",     // Schema init endpoint (gated internally by SETUP_SECRET bearer token)
