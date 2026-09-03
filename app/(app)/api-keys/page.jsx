@@ -76,7 +76,7 @@ function KeyRevealModal({ rawKey, name, onClose }) {
           onClick={onClose}
           className="w-full py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-colors"
         >
-          I've saved my key — Close
+          I&apos;ve saved my key — Close
         </button>
       </div>
     </div>
@@ -339,7 +339,7 @@ function ApiKeysContent() {
         <h4 className="text-xs font-bold text-amber-900 mb-1">🔐 Key Security</h4>
         <p className="text-xs text-amber-800">
           API keys are stored as SHA-256 hashes — we never retain the raw key. When you create a key,
-          you'll see it exactly once. Store it in your environment variables or a secrets manager.
+          you&apos;ll see it exactly once. Store it in your environment variables or a secrets manager.
         </p>
       </div>
 

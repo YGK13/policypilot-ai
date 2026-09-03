@@ -22,6 +22,7 @@ export const metadata = pageMeta({
   description:
     "Answer employee questions from your own handbook with citations, route ADA, FMLA and harassment questions to a human, and keep the record. Federal + 11-state coverage. From $99/mo.",
   path: "/",
+  absolute: true,
 });
 
 const OUTCOMES = [

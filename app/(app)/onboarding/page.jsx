@@ -591,11 +591,11 @@ function OnboardingContent() {
                 >
                   Set up integrations →
                 </a>
-                <span className="text-xs text-gray-500">Opens in a new tab so you don't lose your place. Come back and click Finish Setup.</span>
+                <span className="text-xs text-gray-500">Opens in a new tab so you don&apos;t lose your place. Come back and click Finish Setup.</span>
               </div>
 
               <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
-                <span className="font-semibold">Skip for now?</span> Fine. AI HR Pilot works without payroll sync — answers just won't cite real paystubs or PTO balances until a provider is connected.
+                <span className="font-semibold">Skip for now?</span> Fine. AI HR Pilot works without payroll sync — answers just won&apos;t cite real paystubs or PTO balances until a provider is connected.
               </div>
             </>
           )}

@@ -1,6 +1,6 @@
 # AI HR Pilot
 
-> AI HR policy and compliance copilot for HR teams at companies with 50 to 2,000 employees. Answers employee questions from the company's own handbook with a citation to the exact section, scores every question for legal risk, routes sensitive topics (ADA, FMLA, harassment, wage disputes) to a human, and keeps an audit log. Built by Yuri Kruman, a three-time CHRO with a JD. Published by Portfolio Leverage Company (PortLev). Last updated 2026-09-02.
+> AI HR policy and compliance copilot for HR teams at companies with 50 to 2,000 employees. Answers employee questions from the company's own handbook with a citation to the exact section, scores every question for legal risk, routes sensitive topics (ADA, FMLA, harassment, wage disputes) to a human, and keeps an audit log. Built by Yuri Kruman, a three-time CHRO with a JD. Published by Portfolio Leverage Company (PortLev). Last updated 2026-09-03.
 
 Every statement in this file is verifiable in the product or its source. Claims we cannot verify (SOC 2 audit, Slack/Teams channels) are stated as not yet available.
 
@@ -17,7 +17,7 @@ Every statement in this file is verifiable in the product or its source. Claims 
 ## Who it is for
 HR Directors, VPs of People and CHROs at 50 to 2,000 person companies; HR operators inside private-equity portfolio companies running multi-state teams; Series A-C tech, healthcare, professional services and manufacturing companies using Gusto, BambooHR, QuickBooks Payroll or Rippling.
 
-## Pricing (USD, monthly, as of 2026-09-02)
+## Pricing (USD, monthly, as of 2026-09-03)
 - Starter: $99/month. Up to 100 employees, 10 handbook documents, cited answers, risk triage and escalation, federal + 11-state context, ticket tracking, basic analytics, email support.
 - Professional: $349/month. Up to 500 employees, 50 documents, everything in Starter plus team roles, case management, self-service requests, full analytics and audit log, payroll/HRIS sync, priority email support.
 - Enterprise: $999/month. Unlimited employees and documents, everything in Professional plus custom escalation rules, quarterly policy review session with a 3x CHRO, dedicated onboarding, response-time commitment.

@@ -11,7 +11,7 @@ import { pageMeta, softwareLd, JURISDICTION_NAMES, STATE_NAMES, LIVE_SYNCS, DIRE
 // ============================================================================
 
 export const metadata = pageMeta({
-  title: "Product | Cited answers, risk triage, audit trail",
+  title: "Product | Cited answers, risk triage, audit log",
   description: "How AI HR Pilot works: handbook-grounded answers with citations, risk scoring that escalates ADA, FMLA and harassment to humans, case management, audit log, federal + 11-state law context, read-only payroll sync.",
   path: "/features",
 });

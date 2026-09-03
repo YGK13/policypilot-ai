@@ -290,7 +290,11 @@ export default function AppShell({ children }) {
   const savedSession = useRef(loadSession());
 
   // -- Clerk auth (only active when CLERK_PUBLISHABLE_KEY is set) --
+  // CLERK_ENABLED is a module-level constant evaluated once per environment,
+  // so the hook call order never changes between renders (see AUTH_FIX_2026-04-21.md).
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const clerkUser = CLERK_ENABLED ? useUser() : { isLoaded: true, isSignedIn: false, user: null };
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const clerk = CLERK_ENABLED ? useClerk() : null;
 
   // -- Demo auth state (fallback when Clerk not configured) --

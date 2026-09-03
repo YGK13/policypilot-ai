@@ -205,43 +205,6 @@ export default async function ArticlePage({ params }) {
     "@type": "Article",
     headline: post.title,
     description: post.description,
-    author: { "@type": "Person", name: "Yuri Kruman", url: "https://www.linkedin.com/in/yurikruman" },
-    datePublished: post.date,
-    publisher: {
-      "@type": "Organization",
-      name: "AI HR Pilot",
-      url: "https://aihrpilot.com",
-    },
-  };
-
-  return (
-    <div
-      style={{
-        background: "#09090b",
-        color: "#e4e4e7",
-        fontFamily: "var(--font-inter), system-ui, sans-serif",
-  export default async function ArticlePage({ params }) {
-  const { slug } = await params;
-  const post = getPost(slug);
-  if (!post) notFound();
-
-  // Read the article body from disk at build time
-  const filePath = path.join(process.cwd(), "content", "blog", "posts", `${slug}.md`);
-  let body = "";
-  try {
-    body = fs.readFileSync(filePath, "utf8");
-  } catch (err) {
-    body = "# Article not found";
-  }
-
-  const html = renderMarkdown(body);
-
-  // Article schema for SEO (JSON-LD)
-  const articleSchema = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: post.title,
-    description: post.description,
     author: { "@type": "Person", "@id": "https://yurikruman.com/#person", name: "Yuri Kruman", url: "https://www.linkedin.com/in/yurikruman/" },
     datePublished: post.date,
     dateModified: post.date,

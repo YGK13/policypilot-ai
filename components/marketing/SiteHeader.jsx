@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV, PRIMARY_CTA } from "@/lib/marketing/site";
 
 // ============================================================================
 // SITE HEADER — sticky, paper background, wordmark per the "Signal" concept.
-// Client component only for the mobile menu toggle + aria-current.
+// Client component only for the mobile menu toggle + aria-current. The
+// mobile menu closes on link click (no effect-driven state sync needed).
 // ============================================================================
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname() || "/";
-
-  useEffect(() => { setOpen(false); }, [pathname]);
+  const close = () => setOpen(false);
 
   const isActive = (href) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
     <header className="mk-header">
       <div className="mk-container mk-header__inner">
-        <Link href="/" className="mk-logo" aria-label="AI HR Pilot home">
+        <Link href="/" className="mk-logo" aria-label="AI HR Pilot home" onClick={close}>
           <span className="mk-logo__top">AI HR</span>
           <span className="mk-logo__word">pilot</span>
         </Link>
@@ -56,12 +56,12 @@ export default function SiteHeader() {
       <div id="mk-mobile-menu" className="mk-mobile" data-open={open}>
         <ul>
           {NAV.map((n) => (
-            <li key={n.href}><Link href={n.href}>{n.label}</Link></li>
+            <li key={n.href}><Link href={n.href} onClick={close} aria-current={isActive(n.href) ? "page" : undefined}>{n.label}</Link></li>
           ))}
-          <li><Link href="/sign-in">Log in</Link></li>
+          <li><Link href="/sign-in" onClick={close}>Log in</Link></li>
         </ul>
         <div className="mk-mobile__cta">
-          <Link href={PRIMARY_CTA.href} className="mk-btn mk-btn--primary mk-btn--block" data-cta="mobile-menu-trial">
+          <Link href={PRIMARY_CTA.href} className="mk-btn mk-btn--primary mk-btn--block" data-cta="mobile-menu-trial" onClick={close}>
             {PRIMARY_CTA.label}
           </Link>
         </div>

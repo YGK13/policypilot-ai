@@ -10,7 +10,7 @@ import { pageMeta, faqLd, COMPARE_ROWS, PRIMARY_CTA, SECONDARY_CTA } from "@/lib
 // ============================================================================
 
 export const metadata = pageMeta({
-  title: "Compare | AI HR Pilot vs Moveworks, Leena AI, Workativ",
+  title: "Compare | vs Moveworks, Leena AI, Workativ",
   description: "AI HR Pilot vs Moveworks ($200K-$1M+/yr), Leena AI ($50K-$200K+/yr) and Workativ (from $349/mo): price, company size, scope, setup time and compliance handling, side by side.",
   path: "/compare",
 });

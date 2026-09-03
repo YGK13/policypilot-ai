@@ -126,11 +126,13 @@ describe("no unearned claims", () => {
     expect(txt).toMatch(/NOT completed its own SOC 2/);
   });
 
-  it("no page content mentions a model vendor by name", () => {
+  it("no marketing copy mentions a model vendor by name", () => {
+    // The privacy policy's subprocessor list is the one place a vendor must be
+    // named (it is a legal disclosure, not marketing copy), so it is excluded.
     const dir = path.join(root, "app/(marketing)");
     const files = [];
     (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p) : files.push(p); } })(dir);
-    for (const f of files) {
+    for (const f of files.filter((p) => !p.endsWith(path.join("privacy", "page.jsx")))) {
       const s = fs.readFileSync(f, "utf8");
       expect(s, f).not.toMatch(/Anthropic|OpenAI|Claude|GPT-4/);
     }

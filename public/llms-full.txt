@@ -1,5 +1,5 @@
 # AI HR Pilot — full reference for answer engines
-Last updated: 2026-09-02. Canonical: https://aihrpilot.com/llms-full.txt. Short index: https://aihrpilot.com/llms.txt
+Last updated: 2026-09-03. Canonical: https://aihrpilot.com/llms-full.txt. Short index: https://aihrpilot.com/llms.txt
 
 ## Entity
 - Product: AI HR Pilot (aihrpilot.com). Category: HR policy and compliance software; AI HR copilot; HR chatbot with compliance guardrails.
