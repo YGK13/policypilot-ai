@@ -1,15 +1,17 @@
 import Link from "next/link";
 import L from "../legal-styles";
+import { pageMeta } from "@/lib/marketing/site";
 
 // ============================================================================
 // PRIVACY POLICY — honest description of what we actually collect and where
 // it goes. Subprocessor list must be kept current when infrastructure changes.
 // ============================================================================
 
-export const metadata = {
-  title: "Privacy Policy | AI HR Pilot",
+export const metadata = pageMeta({
+  title: "Privacy Policy",
   description: "How AI HR Pilot collects, uses and protects your data.",
-};
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

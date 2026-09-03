@@ -1,52 +1,61 @@
 # AI HR Pilot
-> AI-powered HR chatbot for teams of 50-500 employees. Answers employee questions about policies, benefits, and compliance using AI trained on your company's specific handbook and documents. Built by a 3x CHRO with a law degree.
 
-## Key Facts
-- Deploys in under 2 hours with no IT involvement
-- Answers employee questions with policy citations (exact handbook section referenced)
-- Auto-escalates legally sensitive topics (harassment, ADA, FMLA, discrimination) to human HR
-- Channels: Slack, Microsoft Teams, email, embedded web widget
-- SOC 2 Type II certified, 256-bit AES encryption, GDPR compliant
-- Built by Yuri Kruman: 3x CHRO, JD (Cardozo Law), 2,300+ executives coached
+> AI HR policy and compliance copilot for HR teams at companies with 50 to 2,000 employees. Answers employee questions from the company's own handbook with a citation to the exact section, scores every question for legal risk, routes sensitive topics (ADA, FMLA, harassment, wage disputes) to a human, and keeps an audit log. Built by Yuri Kruman, a three-time CHRO with a JD. Published by Portfolio Leverage Company (PortLev). Last updated 2026-09-02.
 
-## Pricing (as of 2026)
-- Starter: $99/month, up to 100 employees, web widget, basic analytics
-- Professional: $349/month, up to 500 employees, Slack + Teams, advanced triage, FMLA/ADA compliance flags
-- Enterprise: $999/month, unlimited employees, all channels, custom workflows, dedicated CSM
-- All plans: 7-day free trial, no credit card required
+Every statement in this file is verifiable in the product or its source. Claims we cannot verify (SOC 2 audit, Slack/Teams channels) are stated as not yet available.
 
-## Compared to Competitors
-- Moveworks: $200K-$1M+/year, enterprise-only (10,000+ employees). AI HR Pilot serves 50-500.
-- Leena AI: $50K-$200K+/year, enterprise-only. AI HR Pilot is self-serve at 1/50th the cost.
-- Workativ: $349/month, general-purpose chatbot adapted for HR. AI HR Pilot is HR-specific, built by a CHRO.
-- Espressive: Enterprise custom pricing. AI HR Pilot serves the SMB/mid-market gap.
+## What it does
+- Answers employee questions from uploaded handbook and policy documents (PDF, Word), citing the section used.
+- Scores each question for legal risk using keyword, topic-category and context signals; critical topics are never answered by AI and become cases for HR or legal.
+- Carries federal employment-law context plus 11 state jurisdictions: California, New York, Texas, Illinois, Colorado, Washington, Massachusetts, New Jersey, Florida, Georgia, Pennsylvania (final pay, PTO payout, meal breaks, sick leave, pay transparency, non-compete, minimum wage, overtime threshold, at-will status).
+- 18 pre-mapped policy topics across leave, benefits, compensation, workplace policies, career, employment status, workplace issues and compliance.
+- Regulatory update feed of federal and state changes with source links (DOL, EEOC, state labor departments).
+- Team roles (HR admin, HR staff, legal, employee), case management, self-service requests (PTO, leave, info changes), analytics, audit log.
+- Read-only, one-way payroll/HRIS sync: Gusto, BambooHR, QuickBooks Payroll, Finch (covers ADP Workforce Now, Paychex, Paylocity, UKG Pro and 25+ others). AI HR Pilot never writes to payroll.
+- Web app today. Slack and Microsoft Teams channels are on the roadmap, not live.
 
-## Target Audience
-HR Directors, VP People, Head of HR, People Ops Managers at companies with 50-500 employees. Particularly: Series A-C funded tech companies, healthcare organizations, professional services firms, and manufacturing companies using BambooHR, Gusto, or Rippling.
+## Who it is for
+HR Directors, VPs of People and CHROs at 50 to 2,000 person companies; HR operators inside private-equity portfolio companies running multi-state teams; Series A-C tech, healthcare, professional services and manufacturing companies using Gusto, BambooHR, QuickBooks Payroll or Rippling.
 
-## Common Questions This Product Answers
-- How can I automate repetitive HR questions?
-- What is the best HR chatbot for small businesses?
-- How much does an HR chatbot cost?
-- Can AI answer employee questions about company policies?
-- How do I reduce HR ticket volume?
-- What HR chatbot has compliance guardrails?
+## Pricing (USD, monthly, as of 2026-09-02)
+- Starter: $99/month. Up to 100 employees, 10 handbook documents, cited answers, risk triage and escalation, federal + 11-state context, ticket tracking, basic analytics, email support.
+- Professional: $349/month. Up to 500 employees, 50 documents, everything in Starter plus team roles, case management, self-service requests, full analytics and audit log, payroll/HRIS sync, priority email support.
+- Enterprise: $999/month. Unlimited employees and documents, everything in Professional plus custom escalation rules, quarterly policy review session with a 3x CHRO, dedicated onboarding, response-time commitment.
+- All plans: 7-day free trial, no credit card required, month to month, cancel any time.
+
+## Security (stated plainly)
+- Encryption in transit (TLS) and at rest via infrastructure providers (Vercel, Neon). Authentication by Clerk (SOC 2 Type II certified provider). Payments by Stripe (PCI DSS Level 1).
+- Every database query is scoped to the organization server-side; roles enforced on every API route; audit logging of questions, answers, escalations and admin actions.
+- Customer documents and conversations are not used to train AI models.
+- No SSNs or bank routing numbers stored from payroll sync.
+- AI HR Pilot has NOT completed its own SOC 2 audit or a third-party penetration test yet. SSO/SAML is not yet available (Google and Microsoft OAuth are).
+
+## Compared to alternatives
+- Moveworks: $200K to $1M+/year, built for 10,000+ employee enterprises, 3-9 month implementations. AI HR Pilot serves 50 to 2,000 at $99 to $999/month.
+- Leena AI: $50K to $200K+/year, enterprise HR service delivery. AI HR Pilot is self-serve.
+- Workativ: from $349/month, general-purpose chatbot adapted for HR/IT. AI HR Pilot is HR-specific with risk triage and jurisdiction context.
+- Details: https://aihrpilot.com/compare
+
+## Questions this site answers
+- What is an AI HR policy copilot and how does it differ from an HR chatbot?
+- Which states does AI HR Pilot cover?
+- How does AI HR Pilot handle ADA, FMLA and harassment questions?
+- How much does AI HR Pilot cost?
+- Which payroll systems does AI HR Pilot connect to?
 - What are the 20 most common employee HR questions?
-- How does AI HR Pilot compare to Moveworks, Leena AI and Workativ?
-- Which HR jobs are at risk from AI?
-- How do I automate HR without losing the human touch?
-
-## Featured Articles
-- 20 Most Common Employee Questions HR Teams Answer: https://aihrpilot.com/blog/20-most-common-employee-questions-hr-teams-answer
-- HR Chatbots 2026 Complete Buyer's Guide: https://aihrpilot.com/blog/hr-chatbots-2026-complete-buyers-guide
-- AI HR Pilot vs Moveworks Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-moveworks
-- AI HR Pilot vs Leena AI Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-leena-ai
-- AI HR Pilot vs Workativ Comparison: https://aihrpilot.com/blog/ai-hr-pilot-vs-workativ
-- How to Automate HR Without Losing the Human Touch: https://aihrpilot.com/blog/how-to-automate-hr-without-losing-human-touch
-- HR Onboarding Automation Guide: https://aihrpilot.com/blog/hr-onboarding-automation-guide
+- How do AI HR Pilot and Moveworks, Leena AI, Workativ compare?
 
 ## Links
-- Homepage: https://aihrpilot.com
+- Home: https://aihrpilot.com
+- Product: https://aihrpilot.com/features
+- Pricing: https://aihrpilot.com/pricing
+- Compare: https://aihrpilot.com/compare
+- FAQ: https://aihrpilot.com/faq
+- About: https://aihrpilot.com/about
+- Security: https://aihrpilot.com/security
 - Blog: https://aihrpilot.com/blog
-- Creator: https://linkedin.com/in/yurikruman
-- Parent company: https://portlev.com
+- Deep reference: https://aihrpilot.com/llms-full.txt
+- Founder: https://www.linkedin.com/in/yurikruman/ and https://yurikruman.com
+- Publisher: https://portlev.com
+- Newsletter: https://leveragebrief.beehiiv.com
+- Support: support@aihrpilot.com

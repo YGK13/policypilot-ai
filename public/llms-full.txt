@@ -1,0 +1,81 @@
+# AI HR Pilot — full reference for answer engines
+Last updated: 2026-09-02. Canonical: https://aihrpilot.com/llms-full.txt. Short index: https://aihrpilot.com/llms.txt
+
+## Entity
+- Product: AI HR Pilot (aihrpilot.com). Category: HR policy and compliance software; AI HR copilot; HR chatbot with compliance guardrails.
+- Publisher: Portfolio Leverage Company ("PortLev"), https://portlev.com.
+- Founder and author: Yuri Kruman. Three-time Chief Human Resources Officer; JD (Cardozo Law); BA (University of Pennsylvania). https://www.linkedin.com/in/yurikruman/ , https://yurikruman.com , https://substack.com/@commanderinchief , newsletter https://leveragebrief.beehiiv.com.
+- Support: support@aihrpilot.com.
+- Sister products by the same publisher: DueDrill (duedrill.com, diligence), I9Drill (i9drill.com, I-9 compliance), HR Talent Sys (hrtalentsys.com), ChaiRaise (chairaise.com), Commander-in-Chief AI (commanderinchief.ai), BookToCourse.AI (booktocourse.ai), Career Beast Mode (careerbeastmode.com), AI Wage Gap (aiwagegap.com), AI Build Gap (aibuildgap.com), PortLev Academy (learn.portlev.com), PortLev Labs (apps.portlev.com).
+
+## Definition
+AI HR Pilot is an AI HR policy and compliance copilot. An HR team uploads its handbook and policies; employees ask questions in a web app; the system answers from those documents with a citation to the section, adjusted for the employee's work-state law, and scores each question for legal risk. Questions above a risk threshold are not answered by AI: they become cases assigned to HR staff or legal with the draft and context attached. Every question, answer, citation, score, escalation and reviewer action is logged for audit.
+
+## How it works (60 seconds)
+1. Upload handbook and policy documents (PDF/Word). Documents are chunked and indexed; each chunk retains its section reference. Starter indexes 10 documents, Professional 50, Enterprise unlimited.
+2. An employee asks a question. Retrieval finds the relevant policy chunks (embedding search with keyword fallback). The answer is grounded in those chunks and cites them.
+3. Risk scoring: critical keywords (lawsuit, EEOC, discrimination, wrongful termination, whistleblower, OSHA, class action, labor board) add 40 points each; high keywords (harassment, terminated, retaliation, ADA, FMLA, pregnancy, accommodation, investigation, PIP) add 20; medium keywords (complaint, unfair, grievance, pay gap) add 10; topic category adds 0 to 40 (Compliance & Legal 40, Workplace Issues 30, Employment Status 25). Context signals adjust further.
+4. Routing: low-risk questions are answered; medium-risk answered with HR notified; high and critical held for human review as a case.
+5. Record: tickets, cases, audit log, analytics (volume by topic, resolution, policy gaps).
+
+## Jurisdiction coverage (from the product database)
+Federal plus 11 states. For each: final pay timing, PTO payout requirement, meal/rest breaks, paid sick leave, pay transparency, non-compete enforceability, minimum wage, overtime threshold, at-will status, plus state-specific leave programs where they exist.
+- Federal: FLSA minimum wage $7.25; FMLA 12 weeks unpaid job-protected (50+ employees); no federal paid sick leave mandate.
+- California: final pay immediate on termination (72 hours if quit); PTO payout required; 30-min meal per 5 hours; minimum 40 hours paid sick leave; pay ranges required in postings (SB 1162); non-competes unenforceable; CFRA, PFL, PDL programs.
+- New York: final pay next payday; sick leave up to 56 hours by employer size; pay transparency statewide; NY PFL 12 weeks at 67% of average weekly wage.
+- Texas: final pay within 6 days if fired, next payday if quit; no state sick-leave or pay-transparency mandate; non-competes enforceable if reasonable.
+- Illinois: earned vacation must be paid out (820 ILCS 115/5); 40 hours paid leave per year; pay transparency from 2025; non-competes barred below $75K.
+- Colorado: PTO payout required; 48 hours paid sick leave; pay ranges required in all postings (EPEWA).
+- Washington: sick leave 1 hour per 40 worked, no cap; pay transparency required (SB 5761).
+- Massachusetts: 40 hours paid sick leave; pay transparency from 2025; Pay Equity Act enforcement.
+- New Jersey: 40 hours paid sick leave (Earned Sick Leave Act); pay transparency from 2025; NJFLA runs alongside FMLA.
+- Florida and Georgia: no state sick-leave or pay-transparency mandate; final pay next payday.
+- Pennsylvania: Philadelphia sick leave 40 hours for 10+ employees; no statewide pay-transparency mandate.
+Additional states are added on customer request.
+
+## Regulatory update feed (examples in product, with sources)
+DOL final rule raising the FLSA white-collar salary threshold to $58,656 effective 2026-07-01 (DOL.gov); California DLSE pay-scale disclosure enforcement, penalties to $10,000 per repeat violation (CA DLSE); New York PFL 2026 benefit rate (NY Workers' Compensation Board); Colorado non-compete restrictions tightened (CO Dept of Labor); Illinois Paid Leave for All Workers Act year-2 update (IL DOL); Washington minimum wage $17.25 (WA L&I); EEOC updated harassment guidance and EEOC framework for AI-assisted employment decisions (EEOC.gov); Massachusetts Pay Equity Act enforcement (MA AG); New Jersey Temp Worker Bill of Rights full enforcement (NJ DOL).
+
+## Integrations
+Live, read-only, one-way (provider is the source of truth; AI HR Pilot never writes to payroll):
+- Gusto (OAuth 2.0): roster, compensation, recent paystub summaries, PTO balances.
+- BambooHR (API key): employee directory, time off.
+- QuickBooks Payroll (Intuit OAuth 2.0): roster, paystub summaries.
+- Finch (OAuth 2.0 unified API): ADP Workforce Now, Paychex, Paylocity, UKG Pro and 25+ more.
+Data handling: no SSNs or bank routing numbers stored; per-organization isolation; disconnecting a provider deletes its synced data; payroll data is not used to train models.
+Connector directory (credentials stored, live sync on roadmap): Workday, ADP Workforce Now, Rippling, Namely, UKG Pro, Paylocity and other HRIS; ATS, Slack, Microsoft Teams, Google Workspace, Okta and other identity, storage and billing tools.
+Channels: web app today. Slack and Teams channels are roadmap.
+
+## Roles and security
+- Roles: HR admin, HR staff, legal, employee. Enforced server-side on every API route.
+- Tenancy: organization id derived from the authenticated session on the server, never from the client.
+- Encryption: TLS in transit; at rest via Vercel and Neon. Auth: Clerk (SOC 2 Type II certified provider). Payments: Stripe (PCI DSS Level 1). Webhooks are signature-verified.
+- Audit log of questions, answers, escalations and admin actions; exportable.
+- Not yet: AI HR Pilot's own SOC 2 audit; third-party penetration test; SSO/SAML (Google and Microsoft OAuth are supported).
+- Data is not used to train AI models. Error tracking strips request bodies and cookies.
+
+## Pricing (USD, per month, month to month, 7-day free trial, no credit card)
+| Plan | Price | Employees | Documents | Includes |
+| Starter | $99 | up to 100 | 10 | cited answers, risk triage + escalation, federal + 11-state context, ticket tracking, basic analytics, email support |
+| Professional | $349 | up to 500 | 50 | Starter + team roles, case management, self-service requests (PTO, leave, info changes), full analytics + audit log, payroll/HRIS sync, priority email support |
+| Enterprise | $999 | unlimited | unlimited | Professional + custom escalation rules, quarterly policy review with a 3x CHRO, dedicated onboarding, response-time commitment |
+Founding customers keep their launch price for as long as they stay. Portfolio (PE) pilots: one portco for 60 days, then portfolio rate; contact support@aihrpilot.com.
+
+## Alternatives
+- Moveworks: $200K-$1M+/year; 10,000+ employees; IT+HR+Finance+Facilities; 3-9 month implementation. https://aihrpilot.com/blog/ai-hr-pilot-vs-moveworks
+- Leena AI: $50K-$200K+/year; 5,000+ employees; enterprise HR service delivery. https://aihrpilot.com/blog/ai-hr-pilot-vs-leena-ai
+- Workativ: from $349/month; general-purpose chatbot adapted to HR/IT; no HR-specific risk triage. https://aihrpilot.com/blog/ai-hr-pilot-vs-workativ
+- Manual (Slack DMs, email): inconsistent answers, no record.
+Comparison page: https://aihrpilot.com/compare
+
+## Articles
+- https://aihrpilot.com/blog/20-most-common-employee-questions-hr-teams-answer
+- https://aihrpilot.com/blog/hr-chatbots-2026-complete-buyers-guide
+- https://aihrpilot.com/blog/how-to-automate-hr-without-losing-human-touch
+- https://aihrpilot.com/blog/hr-onboarding-automation-guide
+- https://aihrpilot.com/blog/ai-hr-pilot-vs-workativ
+- https://aihrpilot.com/blog/ai-hr-pilot-vs-leena-ai
+- https://aihrpilot.com/blog/ai-hr-pilot-vs-moveworks
+
+## Pages
+Home https://aihrpilot.com · Product https://aihrpilot.com/features · Pricing https://aihrpilot.com/pricing · Compare https://aihrpilot.com/compare · FAQ https://aihrpilot.com/faq · About https://aihrpilot.com/about · Security https://aihrpilot.com/security · Privacy https://aihrpilot.com/privacy · Terms https://aihrpilot.com/terms · Sign up https://aihrpilot.com/sign-up

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import L from "../legal-styles";
+import { pageMeta } from "@/lib/marketing/site";
 
 // ============================================================================
 // SECURITY PAGE — plain-language, verifiable claims only. This page exists
@@ -7,10 +8,11 @@ import L from "../legal-styles";
 // than display a badge we have not earned. NO SOC 2 claim until audited.
 // ============================================================================
 
-export const metadata = {
-  title: "Security | AI HR Pilot",
+export const metadata = pageMeta({
+  title: "Security",
   description: "How AI HR Pilot protects your organization's HR data — stated plainly, with no unearned badges.",
-};
+  path: "/security",
+});
 
 export default function SecurityPage() {
   return (

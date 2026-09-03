@@ -1,22 +1,56 @@
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 // ============================================================================
 // ROOT LAYOUT — Minimal server component shell
 // ClerkProvider wraps everything for auth context.
-// AppShell is now in (app)/layout.jsx — NOT here — so the marketing landing
-// page can render without auth, sidebar, or dashboard chrome.
+// AppShell is in (app)/layout.jsx — NOT here — so the marketing pages can
+// render without auth, sidebar, or dashboard chrome.
 // ============================================================================
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
 
+// Mono face for citations, statute refs and metadata on the marketing surface.
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+  weight: ["400", "500", "600"],
+});
+
+const SITE_URL = "https://aihrpilot.com";
+
 export const metadata = {
-  title: "AI HR Pilot | Enterprise HR Intelligence Platform",
-  description: "AI-powered HR policy & benefits chatbot with triage capability",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "AI HR Pilot | AI HR Policy & Compliance Copilot",
+    template: "%s | AI HR Pilot",
+  },
+  description:
+    "AI HR Pilot answers employee questions from your own handbook with citations, routes ADA, FMLA, harassment and wage questions to a human, and keeps an audit trail across federal law and 11 state jurisdictions.",
+  applicationName: "AI HR Pilot",
+  authors: [{ name: "Yuri Kruman", url: "https://yurikruman.com" }],
+  creator: "Yuri Kruman",
+  publisher: "Portfolio Leverage Company",
+  openGraph: {
+    type: "website",
+    siteName: "AI HR Pilot",
+    url: SITE_URL,
+    locale: "en_US",
+  },
+  twitter: { card: "summary_large_image" },
+  robots: { index: true, follow: true },
+};
+
+export const viewport = {
+  themeColor: "#f7f7f5",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {
@@ -38,7 +72,7 @@ export default function RootLayout({ children }) {
       signInFallbackRedirectUrl="/dashboard"
     >
       <html lang="en">
-        <body className={`${inter.variable} font-sans antialiased`}>
+        <body className={`${inter.variable} ${mono.variable} font-sans antialiased`}>
           {children}
         </body>
       </html>

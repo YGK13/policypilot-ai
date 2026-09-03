@@ -1,5 +1,6 @@
 import Link from "next/link";
 import L from "../legal-styles";
+import { pageMeta } from "@/lib/marketing/site";
 
 // ============================================================================
 // TERMS OF SERVICE — real, binding terms. Required for Stripe and for any
@@ -7,10 +8,11 @@ import L from "../legal-styles";
 // clause is a business decision and should be confirmed before enterprise deals.
 // ============================================================================
 
-export const metadata = {
-  title: "Terms of Service | AI HR Pilot",
+export const metadata = pageMeta({
+  title: "Terms of Service",
   description: "Terms of Service for AI HR Pilot, the AI-powered HR assistant by Portfolio Leverage Co.",
-};
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (

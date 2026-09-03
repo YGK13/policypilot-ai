@@ -24,6 +24,13 @@ const isPublicRoute = createRouteMatcher([
   "/sitemap.xml",       // Search engine crawlers need this
   "/llms.txt",          // AI answer engine crawlers (ChatGPT, Perplexity, Claude)
   "/faq",               // Public FAQ page for AEO
+  "/pricing",           // Public marketing pages (rebuilt 2026-09)
+  "/features",
+  "/about",
+  "/compare(.*)",
+  "/llms-full.txt",     // Deep reference for AI answer engines
+  "/opengraph-image(.*)", // Generated OG image (metadata route, no extension)
+  "/twitter-image(.*)",
   "/blog(.*)",          // Public blog/article pages for SEO
   "/terms",             // Legal pages MUST be public (Stripe + procurement requirement)
   "/privacy",
