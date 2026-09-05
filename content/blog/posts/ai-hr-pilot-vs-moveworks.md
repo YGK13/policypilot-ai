@@ -189,4 +189,4 @@ If you're a growing company that needs HR answers for your employees right now, 
 
 ---
 
-*Yuri Kruman is a 3x CHRO, employment attorney (JD, Cardozo School of Law) and builder of AI HR Pilot. He has led HR transformation at companies from 200 to 20,000 employees, trained AI models for Meta, Microsoft and OpenAI and is ranked a Top 5 Global HR Thought Leader by Thinkers360. He built AI HR Pilot because mid-market companies deserve enterprise-quality HR AI without the enterprise price tag.*
+*Yuri Kruman is a 3x CHRO, employment attorney (JD, Cardozo School of Law) and builder of AI HR Pilot. He has led HR transformation at companies from 200 to 20,000 employees, trained AI models for Meta and Microsoft and is ranked a Top 5 Global HR Thought Leader by Thinkers360. He built AI HR Pilot because mid-market companies deserve enterprise-quality HR AI without the enterprise price tag.*

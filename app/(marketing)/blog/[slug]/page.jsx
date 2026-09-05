@@ -23,7 +23,7 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const post = getPost(slug);
   if (!post) return { title: "Not Found" };
-  const meta = pageMeta({ title: post.title, description: post.description, path: `/blog/${post.slug}`, type: "article" });
+  const meta = pageMeta({ title: post.seoTitle || post.title, description: post.description, path: `/blog/${post.slug}`, type: "article" });
   meta.keywords = post.keywords;
   meta.openGraph.publishedTime = post.date;
   meta.openGraph.authors = ["https://yurikruman.com"];

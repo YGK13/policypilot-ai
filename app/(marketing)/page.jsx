@@ -20,7 +20,7 @@ import {
 export const metadata = pageMeta({
   title: "AI HR Pilot | AI HR Policy & Compliance Copilot",
   description:
-    "Answer employee questions from your own handbook with citations, route ADA, FMLA and harassment questions to a human, and keep the record. Federal + 11-state coverage. From $99/mo.",
+    "Answer employee questions from your handbook with citations, route ADA, FMLA and harassment to a human, keep the record. Federal + 11 states, from $99/mo.",
   path: "/",
   absolute: true,
 });
@@ -71,7 +71,7 @@ export default function HomePage() {
             </p>
             <div className="mk-ctarow">
               <Link href={PRIMARY_CTA.href} className="mk-btn mk-btn--signal mk-btn--full-sm" data-cta="hero-trial">{PRIMARY_CTA.label}</Link>
-              <a href="#sixty" className="mk-btn mk-btn--link" data-cta="hero-sixty">See it read a real policy →</a>
+              <a href="#sixty" className="mk-btn mk-btn--link" data-cta="hero-sixty">See how one question is handled →</a>
             </div>
             <p className="mk-hero__note">{TRIAL_TERMS} Built by a 3x CHRO with a JD.</p>
           </div>

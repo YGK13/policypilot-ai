@@ -9,15 +9,15 @@
 
 ---
 
-Your HR team is drowning. Not in strategy, not in org design, not in the complex people problems they were hired to solve — but in Slack DMs asking about PTO balances.
+Your HR team is drowning. Not in strategy, not in org design, not in the complex people problems they were hired to solve - but in Slack DMs asking about PTO balances.
 
 The average HR department at a 200-person company handles 800-1,200 employee inquiries per month. According to SHRM's 2026 State of HR report, 73% of those inquiries are repetitive questions with clear, documented answers that already exist in the employee handbook.
 
 The handbook that nobody reads.
 
-I know this because I've lived it. As a 3x CHRO, I watched my best HR people — the ones capable of building culture, designing retention strategies, and navigating complex employee relations — spend the majority of their week as a human search engine for information that was already written down.
+I know this because I've lived it. As a 3x CHRO, I watched my best HR people - the ones capable of building culture, designing retention strategies, and navigating complex employee relations - spend the majority of their week as a human search engine for information that was already written down.
 
-That's the problem I built AI HR Pilot to solve. But before I tell you about the solution, let me show you the problem — mapped out in exact detail.
+That's the problem I built AI HR Pilot to solve. But before I tell you about the solution, let me show you the problem - mapped out in exact detail.
 
 ---
 
@@ -67,7 +67,7 @@ How AI handles it: **This is a compliance-sensitive question.** A properly desig
 
 How HR answers today: Looks up the benefits summary document, finds the dental section, relays the copay amount. Time: 5-10 minutes including the lookup.
 
-How AI handles it: Instantly references the dental benefits section with the exact copay, deductible, and annual maximum — citing the plan document.
+How AI handles it: Instantly references the dental benefits section with the exact copay, deductible, and annual maximum - citing the plan document.
 
 **7. "When is open enrollment?"**
 
@@ -184,7 +184,7 @@ Here's what every HR chatbot comparison guide misses: the most important feature
 
 Questions 18-20 above are not automatable. They require human judgment, legal awareness, and documentation that creates a defensible record. An AI that attempts to handle a harassment report or an ADA accommodation request is a lawsuit waiting to happen.
 
-This is why I built AI HR Pilot with compliance guardrails as the architecture, not an afterthought. The system was designed by a CHRO with a law degree — not just engineers who've never sat in an employee relations meeting.
+This is why I built AI HR Pilot with compliance guardrails as the architecture, not an afterthought. The system was designed by a CHRO with a law degree - not just engineers who've never sat in an employee relations meeting.
 
 Every response includes a confidence score. Low-confidence answers auto-escalate. Legally sensitive topics trigger immediate human routing with full context passed to the HR team member.
 
@@ -200,10 +200,10 @@ For a 200-person company with 1 HR Director and 1 HR Coordinator:
 | Handled by HR team | 800 (100%) | ~215 (27%) |
 | Handled by AI | 0 | ~585 (73%) |
 | HR time on Tier 1 questions | ~60 hrs/month | ~16 hrs/month |
-| Annual HR time saved | ~528 hours | — |
-| Annual cost of saved time (@ $45/hr) | — | ~$23,760 |
-| AI HR Pilot cost | — | $349/month ($4,188/year) |
-| **Net annual savings** | — | **~$19,572** |
+| Annual HR time saved | ~528 hours | - |
+| Annual cost of saved time (@ $45/hr) | - | ~$23,760 |
+| AI HR Pilot cost | - | $349/month ($4,188/year) |
+| **Net annual savings** | - | **~$19,572** |
 
 That's a 5.7x return before you count the compliance risk reduction, faster onboarding, and improved employee satisfaction.
 
@@ -211,11 +211,11 @@ That's a 5.7x return before you count the compliance risk reduction, faster onbo
 
 ## What to Do Next
 
-If your HR team spends more than 30% of their time answering questions that are already in the handbook, you have an automation problem — not a people problem.
+If your HR team spends more than 30% of their time answering questions that are already in the handbook, you have an automation problem - not a people problem.
 
 AI HR Pilot handles the repetitive 73% with policy-accurate answers and citations. It routes the complex 27% to your human experts with full context. And it deploys in under 2 hours with no IT involvement.
 
-**Start a free trial at aihrpilot.com** — upload your handbook, deploy the AI agent, and watch your Slack DMs drop by Week 1.
+**Start a free trial at aihrpilot.com** - upload your handbook, deploy the AI agent, and watch your Slack DMs drop by Week 1.
 
 ---
 
@@ -225,16 +225,16 @@ AI HR Pilot handles the repetitive 73% with policy-accurate answers and citation
 Most teams deploy AI HR Pilot in under 2 hours. You upload your handbook and benefits documents, configure your channels (Slack, Teams, or web widget), and set your escalation rules. No IT involvement or API integration required.
 
 ### Can an AI chatbot handle employee questions accurately?
-When trained on your specific policies and documents — yes. AI HR Pilot provides answers with citations to the exact policy section, so employees (and you) can verify accuracy. A confidence scoring system flags uncertain answers for human review.
+When trained on your specific policies and documents - yes. AI HR Pilot provides answers with citations to the exact policy section, so employees (and you) can verify accuracy. A confidence scoring system flags uncertain answers for human review.
 
 ### What happens when the AI gives a wrong answer?
 Every response includes a confidence score. Low-confidence answers (below a configurable threshold) are automatically escalated to a human HR team member rather than presented to the employee. You set the threshold based on your risk tolerance.
 
 ### Is it safe to use AI for HR questions?
-When designed with compliance guardrails — yes. The critical design principle is knowing what NOT to automate. Legally sensitive topics (harassment, ADA, FMLA, termination, pay equity) should always route to trained HR professionals, never receive automated responses.
+When designed with compliance guardrails - yes. The critical design principle is knowing what NOT to automate. Legally sensitive topics (harassment, ADA, FMLA, termination, pay equity) should always route to trained HR professionals, never receive automated responses.
 
 ### How much does an HR chatbot cost?
-AI HR Pilot starts at $99/month for teams up to 100 employees, $349/month for up to 500 employees, and $999/month for unlimited. Compare this to the cost of HR team time on repetitive inquiries — typically $20,000-50,000/year for a 200-person company.
+AI HR Pilot starts at $99/month for teams up to 100 employees, $349/month for up to 500 employees, and $999/month for unlimited. Compare this to the cost of HR team time on repetitive inquiries - typically $20,000-50,000/year for a 200-person company.
 
 ---
 

@@ -37,13 +37,42 @@ const isPublicRoute = createRouteMatcher([
   "/security",
 ]);
 
+// -- Every authenticated surface: the app/(app) route group plus the API --
+// Anything that is neither public nor listed here does not exist, so it must
+// fall through to Next's 404 page instead of being redirected to sign-in:
+// a crawler or a mistyped link should get a 404, not a login bounce.
+// tests/marketing-site.test.js asserts this list covers every app/(app) route.
+const isAppRoute = createRouteMatcher([
+  "/dashboard(.*)",
+  "/chat(.*)",
+  "/tickets(.*)",
+  "/cases(.*)",
+  "/documents(.*)",
+  "/policies(.*)",
+  "/analytics(.*)",
+  "/audit(.*)",
+  "/team(.*)",
+  "/settings(.*)",
+  "/billing(.*)",
+  "/integrations(.*)",
+  "/api-keys(.*)",
+  "/self-service(.*)",
+  "/onboarding(.*)",
+  "/api(.*)",
+]);
+
 export default clerkMiddleware(async (auth, request) => {
   // -- Allow public routes through without auth --
   if (isPublicRoute(request)) {
     return;
   }
-  // -- Protect all other routes — redirects to sign-in if not authenticated --
-  await auth.protect();
+  // -- Protect every authenticated route: redirects to sign-in when signed out --
+  if (isAppRoute(request)) {
+    await auth.protect();
+    return;
+  }
+  // -- Unknown path: let Next render the 404 page --
+  return;
 });
 
 export const config = {

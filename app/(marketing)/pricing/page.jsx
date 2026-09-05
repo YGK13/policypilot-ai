@@ -12,7 +12,7 @@ import { pageMeta, softwareLd, faqLd, PLAN_ROWS, PRICING_MATRIX, TRIAL_TERMS, FA
 
 export const metadata = pageMeta({
   title: "Pricing | $99, $349, $999 per month",
-  description: "AI HR Pilot pricing: Starter $99/mo (100 employees), Professional $349/mo (500 employees), Enterprise $999/mo (unlimited). 7-day free trial, no credit card, month to month.",
+  description: "Starter $99/mo (100 employees), Professional $349/mo (500), Enterprise $999/mo (unlimited employees). 7-day free trial, no credit card, month to month.",
   path: "/pricing",
 });
 
@@ -33,7 +33,7 @@ const PRICING_FAQ = FAQ_GROUPS.find((g) => g.group === "Pricing").items.concat([
 
 function Cell({ v }) {
   if (v === true) return <span className="mk-check" aria-label="Included" />;
-  if (v === false) return <span className="mk-dash" aria-label="Not included">—</span>;
+  if (v === false) return <span className="mk-dash" aria-label="Not included">–</span>;
   return <span>{v}</span>;
 }
 

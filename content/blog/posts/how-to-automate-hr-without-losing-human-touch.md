@@ -3,7 +3,7 @@ title: "How to Automate HR Without Losing the Human Touch: A CHRO's Framework"
 author: Yuri Kruman
 date: 2026-04-09
 meta_title: "How to Automate HR Without Losing the Human Touch | CHRO Guide 2026"
-meta_description: "A 3x CHRO's framework for automating HR operations — which tasks to automate, which to keep human, and how to implement in 4 weeks. Free trial included."
+meta_description: "A 3x CHRO's framework for automating HR operations - which tasks to automate, which to keep human, and how to implement in 4 weeks. Free trial included."
 target_keywords: how to automate hr tasks, hr automation, hr ai tools 2026, automate employee questions
 word_count: 2800
 ---

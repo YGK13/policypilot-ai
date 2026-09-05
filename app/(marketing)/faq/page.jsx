@@ -11,7 +11,7 @@ import { pageMeta, faqLd, FAQ_GROUPS, ALL_FAQS, PRIMARY_CTA, SECONDARY_CTA, STAT
 
 export const metadata = pageMeta({
   title: "FAQ | Coverage, pricing, security, escalation",
-  description: "Direct answers: what AI HR Pilot is, which states it covers, how it handles ADA, FMLA and harassment, which payroll systems connect, security, and pricing from $99/mo.",
+  description: "Direct answers: what AI HR Pilot is, the states it covers, how it handles ADA, FMLA and harassment, payroll connections, security and pricing.",
   path: "/faq",
 });
 

@@ -9,9 +9,10 @@
 export const POSTS = [
   {
     slug: "20-most-common-employee-questions-hr-teams-answer",
+    seoTitle: "The 20 Most Common Employee HR Questions",
     title: "The 20 Most Common Employee Questions Your HR Team Answers Every Week (And How AI Handles Them Better)",
     description:
-      "HR teams answer 1,200+ employee inquiries monthly. 73% are repetitive. Here are the top 20 questions and how AI handles them with policy-accurate citations.",
+      "HR teams answer 1,200+ inquiries monthly and 73% repeat. The top 20 questions, and how AI answers them with policy-accurate citations.",
     keywords: "employee questions hr handles, hr chatbot, reduce hr tickets, hr automation",
     date: "2026-04-10",
     readingTime: "12 min read",
@@ -19,6 +20,7 @@ export const POSTS = [
   },
   {
     slug: "hr-chatbots-2026-complete-buyers-guide",
+    seoTitle: "HR Chatbots in 2026: A Buyer's Guide",
     title: "HR Chatbots in 2026: The Complete Buyer's Guide for Teams of 50-500",
     description:
       "Compare the top HR chatbots for SMB and mid-market teams. Pricing from $99-$200K+/year. Feature comparison, decision framework, and what to look for.",
@@ -29,9 +31,10 @@ export const POSTS = [
   },
   {
     slug: "how-to-automate-hr-without-losing-human-touch",
+    seoTitle: "Automate HR Without Losing the Human Touch",
     title: "How to Automate HR Without Losing the Human Touch: A CHRO's Framework",
     description:
-      "A 3x CHRO's framework for automating HR operations — which tasks to automate, which to keep human, and how to implement in 4 weeks.",
+      "A 3x CHRO's framework for automating HR operations: which tasks to automate, which to keep human, and how to implement in 4 weeks.",
     keywords: "how to automate hr tasks, hr automation, hr ai tools 2026, automate employee questions",
     date: "2026-04-14",
     readingTime: "11 min read",
@@ -39,6 +42,7 @@ export const POSTS = [
   },
   {
     slug: "hr-onboarding-automation-guide",
+    seoTitle: "Onboarding Automation: The HR Leader's Guide",
     title: "The HR Leader's Guide to Onboarding Automation: Cut New Hire Time-to-Productivity by 40%",
     description:
       "Step-by-step onboarding automation guide for HR teams. 5 bottlenecks AI eliminates, 4-week implementation plan, ROI calculator.",
@@ -49,6 +53,7 @@ export const POSTS = [
   },
   {
     slug: "ai-hr-pilot-vs-workativ",
+    seoTitle: "AI HR Pilot vs Workativ: Which Fits Your Team",
     title: "AI HR Pilot vs Workativ: Which HR Chatbot Is Right for Your Team?",
     description:
       "Side-by-side comparison of AI HR Pilot ($99-999/mo) vs Workativ ($349/mo). Features, pricing, compliance handling, and which is better for teams of 50-500.",
@@ -59,6 +64,7 @@ export const POSTS = [
   },
   {
     slug: "ai-hr-pilot-vs-leena-ai",
+    seoTitle: "AI HR Pilot vs Leena AI: Enterprise vs SMB",
     title: "AI HR Pilot vs Leena AI: Enterprise HR Chatbot vs SMB Alternative",
     description:
       "Leena AI costs $50K-200K+/year and serves 5,000+ employee enterprises. AI HR Pilot starts at $99/mo for teams of 50-500. Full comparison inside.",
@@ -69,6 +75,7 @@ export const POSTS = [
   },
   {
     slug: "ai-hr-pilot-vs-moveworks",
+    seoTitle: "AI HR Pilot vs Moveworks: Do You Need $1M?",
     title: "AI HR Pilot vs Moveworks: Do You Really Need a $1M HR Chatbot?",
     description:
       "Moveworks costs $200K-1M+/year for enterprise AI. AI HR Pilot delivers 80% of the value at $99-999/month. Honest comparison from a 3x CHRO.",

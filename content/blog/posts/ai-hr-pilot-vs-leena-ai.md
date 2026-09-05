@@ -146,7 +146,7 @@ This is more common than you might think. Some mid-market companies use AI HR Pi
 
 ## The Bottom Line
 
-Leena AI is a world-class enterprise platform. If you are a Fortune 1000 company with 5,000+ employees, a Workday implementation and a six-figure HR tech budget, talk to them.
+Leena AI is a capable enterprise platform. If you are a Fortune 1000 company with 5,000+ employees, a Workday implementation and a six-figure HR tech budget, talk to them.
 
 If you are a 50-500 person company that needs an HR chatbot live by the end of the week, at a price point that does not require board approval, with compliance depth built by someone who has actually been the CHRO on the hook when things go sideways: that is AI HR Pilot.
 
@@ -156,4 +156,4 @@ The best product is the one built for your actual company, not the company you h
 
 ---
 
-*Yuri Kruman is a 3x CHRO, employment attorney (JD, Cardozo School of Law) and builder of AI HR Pilot. He has led HR transformations at Fortune 500 companies, VC-backed startups and global organizations. He is a Top 5 Global HR Thought Leader (Thinkers360) and has trained AI systems for Meta, Microsoft and OpenAI. He built AI HR Pilot because the HR chatbot market had a $50,000 hole where small and mid-sized companies were supposed to fit.*
+*Yuri Kruman is a 3x CHRO, employment attorney (JD, Cardozo School of Law) and builder of AI HR Pilot. He has led HR transformations at Fortune 500 companies, VC-backed startups and global organizations. He is a Top 5 Global HR Thought Leader (Thinkers360) and has trained AI systems for Meta and Microsoft. He built AI HR Pilot because the HR chatbot market had a $50,000 hole where small and mid-sized companies were supposed to fit.*

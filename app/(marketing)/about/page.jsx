@@ -11,7 +11,7 @@ import { pageMeta, personLd, organizationLd, PERSON, ORG, SISTER_LINKS, SECONDAR
 
 export const metadata = pageMeta({
   title: "About | Built by a 3x CHRO with a JD",
-  description: "AI HR Pilot is built by Yuri Kruman, a three-time CHRO with a JD, and published by Portfolio Leverage Company. Why it exists, who it is for, and the rules it is built under.",
+  description: "AI HR Pilot is built by Yuri Kruman, a three-time CHRO with a JD, published by Portfolio Leverage Company. Why it exists, who it is for, its rules.",
   path: "/about",
 });
 

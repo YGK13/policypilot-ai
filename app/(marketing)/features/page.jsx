@@ -11,8 +11,8 @@ import { pageMeta, softwareLd, JURISDICTION_NAMES, STATE_NAMES, LIVE_SYNCS, DIRE
 // ============================================================================
 
 export const metadata = pageMeta({
-  title: "Product | Cited answers, risk triage, audit log",
-  description: "How AI HR Pilot works: handbook-grounded answers with citations, risk scoring that escalates ADA, FMLA and harassment to humans, case management, audit log, federal + 11-state law context, read-only payroll sync.",
+  title: "Product | Cited answers, triage, audit log",
+  description: "Handbook-grounded answers with citations, risk scoring that escalates ADA, FMLA and harassment to a human, cases, audit log, federal + 11-state context.",
   path: "/features",
 });
 
@@ -88,7 +88,7 @@ export default function FeaturesPage() {
                   {JURISDICTION_NAMES.map((name) => (
                     <tr key={name}>
                       <td className="mk-td-name">{name}</td>
-                      {fields.map((f) => <td key={f} className="mk-td-mono">{JURISDICTIONS[name][f] || "—"}</td>)}
+                      {fields.map((f) => <td key={f} className="mk-td-mono">{JURISDICTIONS[name][f] || "\u2013"}</td>)}
                     </tr>
                   ))}
                 </tbody>

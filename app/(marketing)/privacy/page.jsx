@@ -47,10 +47,10 @@ export default function PrivacyPage() {
         <h2 style={L.h2}>Subprocessors</h2>
         <p style={L.p}>We use the following infrastructure providers to run the Service:</p>
         <ul style={L.ul}>
-          <li style={L.li}>Vercel (hosting, file storage, AI gateway) — United States</li>
-          <li style={L.li}>Neon (Postgres database) — United States</li>
-          <li style={L.li}>Clerk (authentication) — United States</li>
-          <li style={L.li}>Anthropic and OpenAI via Vercel AI Gateway (AI answer generation and document embeddings)</li>
+          <li style={L.li}>Vercel (hosting, file storage, AI gateway), United States</li>
+          <li style={L.li}>Neon (Postgres database), United States</li>
+          <li style={L.li}>Clerk (authentication), United States</li>
+          <li style={L.li}>AI model providers reached through Vercel AI Gateway (answer generation and document embeddings)</li>
           <li style={L.li}>Stripe (payments)</li>
           <li style={L.li}>Resend (transactional email)</li>
         </ul>

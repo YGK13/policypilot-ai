@@ -10,7 +10,7 @@ import { pageMeta } from "@/lib/marketing/site";
 
 export const metadata = pageMeta({
   title: "Security",
-  description: "How AI HR Pilot protects your organization's HR data — stated plainly, with no unearned badges.",
+  description: "How AI HR Pilot protects your organization's HR data, stated plainly, with no unearned badges.",
   path: "/security",
 });
 

@@ -17,7 +17,8 @@ import JURISDICTIONS from "@/lib/data/jurisdictions";
 import { POSTS } from "@/content/blog/posts";
 import sitemap, { STATIC_ROUTES } from "@/app/sitemap";
 import {
-  PLAN_ROWS, ALL_FAQS, HOME_FAQS, COVERAGE_ROWS, STATE_NAMES, softwareLd, faqLd, breadcrumbLd, pageMeta, SITE_URL,
+  PLAN_ROWS, ALL_FAQS, HOME_FAQS, COVERAGE_ROWS, STATE_NAMES, FEED_ROWS, SIXTY_SECONDS, PRICING_MATRIX,
+  softwareLd, faqLd, breadcrumbLd, pageMeta, SITE_URL,
 } from "@/lib/marketing/site";
 
 const root = process.cwd();
@@ -126,15 +127,90 @@ describe("no unearned claims", () => {
     expect(txt).toMatch(/NOT completed its own SOC 2/);
   });
 
-  it("no marketing copy mentions a model vendor by name", () => {
-    // The privacy policy's subprocessor list is the one place a vendor must be
-    // named (it is a legal disclosure, not marketing copy), so it is excluded.
+  it("no marketing page mentions a model vendor by name", () => {
+    // Including the privacy policy: the subprocessor disclosure names the
+    // gateway we contract with, not the model vendors behind it.
     const dir = path.join(root, "app/(marketing)");
     const files = [];
     (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p) : files.push(p); } })(dir);
-    for (const f of files.filter((p) => !p.endsWith(path.join("privacy", "page.jsx")))) {
+    for (const f of files) {
       const s = fs.readFileSync(f, "utf8");
       expect(s, f).not.toMatch(/Anthropic|OpenAI|Claude|GPT-4/);
     }
+    const postsDir = path.join(root, "content/blog/posts");
+    for (const f of fs.readdirSync(postsDir)) {
+      const s = fs.readFileSync(path.join(postsDir, f), "utf8");
+      expect(s, f).not.toMatch(/Anthropic|OpenAI|Claude|GPT-4/);
+    }
+  });
+
+  it("no plan feature claims coverage the jurisdiction database does not have", () => {
+    const states = STATE_NAMES.length;
+    for (const p of PLANS) {
+      for (const f of p.features) {
+        const m = f.match(/(\d+)[- ]state/i);
+        if (m) expect(Number(m[1]), `${p.id}: ${f}`).toBe(states);
+      }
+    }
+  });
+
+  it("no visible marketing copy uses an em dash", () => {
+    const strings = [
+      ...FEED_ROWS.flatMap((r) => [r.who, r.q, r.to || "", ...r.log]),
+      ...SIXTY_SECONDS.flatMap((s) => [s.title, s.body]),
+      ...PRICING_MATRIX.flatMap((r) => [r.feature, r.starter, r.professional, r.enterprise]),
+      ...ALL_FAQS.flatMap((f) => [f.q, f.a]),
+      ...PLANS.flatMap((p) => p.features),
+      ...Object.values(JURISDICTIONS).flatMap((j) => Object.values(j)),
+      ...POSTS.flatMap((p) => [p.title, p.seoTitle, p.description]),
+    ].filter((v) => typeof v === "string");
+    for (const s of strings) expect(s, s).not.toContain("\u2014");
+  });
+});
+
+
+describe("metadata length budgets", () => {
+  const pages = fs.readdirSync(path.join(root, "app/(marketing)"), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith("["))
+    .map((d) => `app/(marketing)/${d.name}/page.jsx`)
+    .concat(["app/(marketing)/page.jsx"])
+    .filter((p) => fs.existsSync(path.join(root, p)));
+
+  for (const rel of pages) {
+    it(`${rel} keeps title <= 60 and description <= 155`, () => {
+      const src = read(rel);
+      const start = src.indexOf("pageMeta({");
+      if (start === -1) return; // page has no metadata of its own
+      const head = src.slice(start, start + 900);
+      const title = head.match(/title:\s*"((?:[^"\\]|\\.)*)"/);
+      const desc = head.match(/description:\s*\n?\s*"((?:[^"\\]|\\.)*)"/);
+      expect(title, rel).toBeTruthy();
+      expect(desc, rel).toBeTruthy();
+      // Every route but the home page inherits the " | AI HR Pilot" template.
+      const suffix = rel === "app/(marketing)/page.jsx" ? 0 : " | AI HR Pilot".length;
+      expect(title[1].length + suffix, `${rel} title`).toBeLessThanOrEqual(60);
+      expect(desc[1].length, `${rel} description`).toBeLessThanOrEqual(155);
+    });
+  }
+
+  it("every blog post has an SEO title that fits the template and a description under 155", () => {
+    for (const p of POSTS) {
+      expect(p.seoTitle, p.slug).toBeTruthy();
+      expect(p.seoTitle.length + " | AI HR Pilot".length, p.slug).toBeLessThanOrEqual(60);
+      expect(p.description.length, p.slug).toBeLessThanOrEqual(155);
+    }
+  });
+});
+
+describe("proxy route coverage", () => {
+  it("every app/(app) route is protected, so unknown paths can 404 instead of redirecting", () => {
+    const proxy = read("proxy.ts");
+    const block = proxy.slice(proxy.indexOf("const isAppRoute"), proxy.indexOf("export default clerkMiddleware"));
+    expect(block).toContain("/api(.*)");
+    const dirs = fs.readdirSync(path.join(root, "app/(app)"), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+    expect(dirs.length).toBeGreaterThan(5);
+    for (const d of dirs) expect(block, `/${d} missing from proxy protected routes`).toContain(`"/${d}(.*)"`);
   });
 });
