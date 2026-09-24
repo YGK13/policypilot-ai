@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => db);
 vi.stubEnv("VERCEL_OIDC_TOKEN", "test-oidc");
 vi.stubEnv("AI_MODEL", "");
 const { POST, GET } = await import("@/app/api/chat/route.js");
+const { LEGAL_DISCLAIMER_HTML } = await import("@/lib/law/chat-prompt.js");
 
 function fakeStream(parts) {
   return {
@@ -55,7 +56,8 @@ describe("POST /api/chat — LLM path", () => {
     ]));
     const res = await POST(req({ query: "PTO?" }));
     expect(res.headers.get("X-HR-LLM")).toBe("1");
-    expect(await res.text()).toBe("Hello there");
+    // -- The not-legal-advice disclaimer is appended server-side --
+    expect(await res.text()).toBe("Hello there" + LEGAL_DISCLAIMER_HTML);
   });
 
   it("returns the local-engine fallback (not an empty 200) when the stream errors before any text", async () => {

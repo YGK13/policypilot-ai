@@ -5,6 +5,7 @@ import { useApp } from "@/app/AppShell";
 import POLICIES from "@/lib/data/policies";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
 import REGULATORY_UPDATES from "@/lib/data/regulatory-updates";
+import { describeFact, factEntries, factLabel, isUpdateVerified, SOURCE_PENDING } from "@/lib/law/provenance";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/layout/ToastProvider";
 
@@ -17,8 +18,7 @@ import { useToast } from "@/components/layout/ToastProvider";
 
 const RISK_PILL = { low: "pill-green", medium: "pill-amber", high: "pill-red", critical: "pill-red" };
 const IMPACT_PILL = { high: "pill-red", medium: "pill-amber", low: "pill-green" };
-const STATUS_PILL = { enacted: "pill-green", enforcing: "pill-amber", guidance: "pill-blue", proposed: "pill-gray" };
-const SKIP_KEYS = ["flag"];
+const STATUS_PILL = { enacted: "pill-green", enforcing: "pill-amber", guidance: "pill-blue", proposed: "pill-gray", rescinded: "pill-gray" };
 
 function PoliciesContent() {
   const { employee, isAdmin, settings, setSettings, addAudit, addNotification, currentUser, orgId } = useApp();
@@ -185,7 +185,8 @@ function PoliciesContent() {
     const updated = { ...reviewedUpdates };
     const toPost = [];
     REGULATORY_UPDATES.forEach((u) => {
-      if (!updated[u.id]) {
+      // -- Unverified items never reach the AI engine automatically --
+      if (!updated[u.id] && isUpdateVerified(u)) {
         const reviewData = {
           status: "implemented",
           implementedBy: "System (Auto-Implement)",
@@ -214,6 +215,7 @@ function PoliciesContent() {
 
   // -- Count pending updates --
   const pendingCount = REGULATORY_UPDATES.filter((u) => !reviewedUpdates[u.id]).length;
+  const implementableCount = REGULATORY_UPDATES.filter((u) => !reviewedUpdates[u.id] && isUpdateVerified(u)).length;
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
@@ -230,12 +232,12 @@ function PoliciesContent() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {pendingCount > 0 && (
+            {implementableCount > 0 && (
               <button
                 onClick={autoImplementAll}
                 className="px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors cursor-pointer"
               >
-                Implement All ({pendingCount})
+                Implement All ({implementableCount})
               </button>
             )}
             <button
@@ -380,16 +382,29 @@ function PoliciesContent() {
                 </div>
               </div>
               <div className="space-y-2">
-                {Object.entries(rules)
-                  .filter(([key]) => !SKIP_KEYS.includes(key))
-                  .map(([key, value]) => (
+                {factEntries(rules).map(([key, fact]) => {
+                  // -- Provenance gate: unverified facts never render as fact --
+                  const d = describeFact(fact);
+                  return (
                     <div key={key} className="flex gap-2">
                       <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap min-w-[90px]">
-                        {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                        {factLabel(key)}
                       </span>
-                      <span className="text-[11px] text-gray-700 leading-relaxed">{value}</span>
+                      {d.verified ? (
+                        <span className="text-[11px] text-gray-700 leading-relaxed">
+                          {d.text}{" "}
+                          <a href={d.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline whitespace-nowrap">
+                            source
+                          </a>
+                          <span className="text-gray-400"> · verified {d.lastVerified}</span>
+                          {d.stale && <span className="text-amber-600 font-semibold"> · re-verify</span>}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-amber-700 italic leading-relaxed">{SOURCE_PENDING}</span>
+                      )}
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -454,7 +469,19 @@ function PoliciesContent() {
                         <span className="pill pill-gray">{update.category}</span>
                       </div>
 
-                      <p className="text-xs text-gray-600 leading-relaxed mb-3">{update.summary}</p>
+                      {isUpdateVerified(update) ? (
+                        <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                          {update.summary}{" "}
+                          <a href={update.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
+                            Primary source
+                          </a>
+                          <span className="text-gray-400"> · verified {update.lastVerified}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-700 italic leading-relaxed mb-3">
+                          {SOURCE_PENDING}. This item has not been verified against a primary source and is not applied to AI answers.
+                        </p>
+                      )}
 
                       {update.affectedPolicies && update.affectedPolicies.length > 0 && (
                         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
@@ -482,7 +509,7 @@ function PoliciesContent() {
                       <div className="flex items-center gap-3 text-[10px] text-gray-400">
                         <span>📅 {new Date(update.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                         <span>📎 {update.source}</span>
-                        {isAdmin && !reviewState && (
+                        {isAdmin && !reviewState && isUpdateVerified(update) && (
                           <>
                             <button
                               onClick={() => openReview(update)}
@@ -538,7 +565,8 @@ function PoliciesContent() {
               </button>
               <button
                 onClick={() => implementUpdate(reviewModal, reviewNotes)}
-                className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 cursor-pointer"
+                disabled={!isUpdateVerified(reviewModal)}
+                className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 ⚡ Implement Now
               </button>
@@ -554,7 +582,13 @@ function PoliciesContent() {
                 <span className="pill pill-brand">{reviewModal.jurisdiction}</span>
                 <span className="pill pill-gray">{reviewModal.category}</span>
               </div>
-              <p className="text-xs text-gray-600 leading-relaxed">{reviewModal.summary}</p>
+              {isUpdateVerified(reviewModal) ? (
+                <p className="text-xs text-gray-600 leading-relaxed">{reviewModal.summary}</p>
+              ) : (
+                <p className="text-xs text-amber-700 italic leading-relaxed">
+                  {SOURCE_PENDING}. Verify this item against the primary source before implementing it.
+                </p>
+              )}
             </div>
 
             {/* What will change */}
