@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "law:freshness": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/law-freshness.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
