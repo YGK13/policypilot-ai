@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { streamText } from "ai";
+import * as Sentry from "@sentry/nextjs";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
 import JURISDICTIONS from "@/lib/data/jurisdictions";
@@ -30,9 +31,20 @@ import { retrieveContext } from "@/lib/rag";
 //    In production: Vercel auto-provisions it on every deployment. --
 const HAS_LLM = !!process.env.VERCEL_OIDC_TOKEN;
 
-// -- Gateway model slug. "claude-sonnet-4.6" (dotted) is NOT a valid Anthropic
-//    id; the current Sonnet is claude-sonnet-4-6. Env-overridable for upgrades. --
-const AI_MODEL = process.env.AI_MODEL || "anthropic/claude-sonnet-4-6";
+// -- AI Gateway model slug. Gateway slugs use the DOTTED version form
+//    ("anthropic/claude-sonnet-4.6"), not Anthropic's hyphenated API ids
+//    ("claude-sonnet-4-6"), which the gateway rejects. Current Sonnet is
+//    "anthropic/claude-sonnet-5" (listed in the @ai-sdk/gateway model catalog
+//    from v4; the pinned 3.x types predate it, but the id is a plain string).
+//    Env-overridable for upgrades. --
+const AI_MODEL = process.env.AI_MODEL || "anthropic/claude-sonnet-5";
+
+// -- Hard cap on generated tokens per answer (cost control) --
+const MAX_OUTPUT_TOKENS = 1024;
+
+// -- Appended when the model stream fails after some text was already sent --
+const INTERRUPTED_NOTICE =
+  "<br><br><em>The AI answer was interrupted. Standard policy guidance:</em><br>";
 
 // -- Rate limit: messages per user per minute --
 const CHAT_RATE_LIMIT = parseInt(process.env.CHAT_RATE_LIMIT || "20");
@@ -164,9 +176,13 @@ export async function GET(request) {
     return NextResponse.json({ messages: [], demo: true });
   }
 
-  // -- Tenant + user identity from the session, never the query string --
-  const orgId  = guard.session.orgId || "default";
+  // -- Tenant + user identity from the session, never the query string.
+  //    No shared "default" fallback: an unprovisioned user fails closed. --
+  const orgId  = guard.session.orgId;
   const userId = guard.session.user?.id || null;
+  if (!orgId) {
+    return NextResponse.json({ error: "Workspace not provisioned" }, { status: 409 });
+  }
 
   const url       = new URL(request.url);
   const sessionId = url.searchParams.get("sessionId");
@@ -201,9 +217,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Query too long. Maximum 2000 characters." }, { status: 413 });
     }
 
-    // -- Tenant + user identity from the session, never the body --
-    const orgId  = guard.session.orgId || "default";
+    // -- Tenant + user identity from the session, never the body.
+    //    No shared "default" fallback: an unprovisioned user fails closed. --
+    const orgId  = guard.session.orgId;
     const userId = guard.session.user?.id || null;
+    if (!orgId) {
+      return NextResponse.json({ error: "Workspace not provisioned" }, { status: 409 });
+    }
 
     // -- Rate limit: DB-backed sliding window per user (survives cold starts) --
     if (isDbAvailable() && userId) {
@@ -262,7 +282,15 @@ export async function POST(request) {
           model:     AI_MODEL,
           system:    buildSystemPrompt(employee, excerpts),
           prompt:    query,
-          maxTokens: 1024,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+
+          // -- Errors surface inside the stream (streamText never throws
+          //    synchronously); report them, the stream handling below turns
+          //    them into the local-engine fallback. --
+          onError: ({ error }) => {
+            console.error("[Chat API] LLM stream error:", error?.message || error);
+            Sentry.captureException(error);
+          },
 
           // -- onFinish: persist assistant message to Neon after stream completes --
           onFinish: ({ text }) => {
@@ -286,21 +314,58 @@ export async function POST(request) {
           },
         });
 
-        // -- Return plain text stream with metadata headers --
-        const streamResponse = result.toTextStreamResponse();
-        const responseHeaders = new Headers(streamResponse.headers);
+        // -- Wait for the first text chunk before committing to a streaming
+        //    response. A gateway/model failure (bad slug, auth, overload) shows
+        //    up here as an error part and throws into the JSON fallback below,
+        //    instead of returning an empty 200 stream. --
+        const parts = result.fullStream[Symbol.asyncIterator]();
+        let firstText = null;
+        while (firstText === null) {
+          const { value, done } = await parts.next();
+          if (done) throw new Error("LLM stream ended without text");
+          if (value.type === "error") throw value.error instanceof Error ? value.error : new Error(String(value.error));
+          if (value.type === "text-delta" && value.text) firstText = value.text;
+        }
+
+        // -- Stream the rest. A mid-stream failure appends the local-engine
+        //    answer so the user never ends up with a truncated reply. --
+        const encoder = new TextEncoder();
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(firstText));
+          },
+          async pull(controller) {
+            try {
+              while (true) {
+                const { value, done } = await parts.next();
+                if (done) { controller.close(); return; }
+                if (value.type === "error") throw value.error;
+                if (value.type === "text-delta" && value.text) {
+                  controller.enqueue(encoder.encode(value.text));
+                  return;
+                }
+              }
+            } catch (err) {
+              console.error("[Chat API] LLM stream failed mid-response:", err?.message || err);
+              controller.enqueue(encoder.encode(INTERRUPTED_NOTICE + localResponse.answer));
+              controller.close();
+            }
+          },
+          cancel() {
+            parts.return?.();
+          },
+        });
+
+        const responseHeaders = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
         for (const [k, v] of Object.entries(metaHeaders)) {
           responseHeaders.set(k, v);
         }
         responseHeaders.set("X-HR-LLM", "1");
         responseHeaders.set("X-HR-LLM-Failed", "0");
 
-        return new Response(streamResponse.body, {
-          status:  streamResponse.status,
-          headers: responseHeaders,
-        });
+        return new Response(body, { status: 200, headers: responseHeaders });
       } catch (llmError) {
-        console.error("[Chat API] streamText failed, falling back to local:", llmError.message);
+        console.error("[Chat API] LLM failed, falling back to local:", llmError?.message || llmError);
         return NextResponse.json({
           answer:     localResponse.answer,
           source:     localResponse.source,

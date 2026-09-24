@@ -20,7 +20,8 @@ function ChatContent() {
   const sessionId = useRef(
     typeof window !== "undefined"
       ? (sessionStorage.getItem("aihrpilot_session_id") || (() => {
-          const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          // -- Unguessable id (was time + 6 base36 chars) --
+          const id = `sess_${crypto.randomUUID()}`;
           sessionStorage.setItem("aihrpilot_session_id", id);
           return id;
         })())
