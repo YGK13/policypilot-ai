@@ -1,10 +1,13 @@
 // ============================================================================
 // API: /api/health — System health check
 //
-// GET: Returns JSON with status of all configured services.
-//      Used by: onboarding wizard, admin dashboard, uptime monitors, Vercel checks.
+// GET: Public callers (uptime monitors) get ONLY { ok, timestamp }. The route
+//      is public in proxy.ts, so the detailed service inventory below is
+//      returned only to a signed-in hr_admin (onboarding wizard) or a caller
+//      sending `Authorization: Bearer $SETUP_SECRET`. Raw DB errors are never
+//      returned; they are logged server-side.
 //
-// Response shape:
+// Detailed response shape:
 // {
 //   ok: true,
 //   timestamp: "ISO-8601",
@@ -24,7 +27,26 @@
 // ============================================================================
 
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { isDbAvailable, getDb } from "@/lib/db";
+import { getSessionRole } from "@/lib/auth/rbac";
+
+// -- Same two auth paths as /api/setup: SETUP_SECRET bearer or hr_admin session --
+async function canSeeDetails(request) {
+  const secret = process.env.SETUP_SECRET;
+  const token  = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (secret && token) {
+    const a = Buffer.from(token);
+    const b = Buffer.from(secret);
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  }
+  try {
+    const session = await getSessionRole();
+    return !!(session?.authed && session.role === "hr_admin");
+  } catch {
+    return false;
+  }
+}
 
 // -- Tables the schema creates. Keep in sync with lib/db/schema.sql AND with
 //    the identical list in app/api/setup/route.js. --
@@ -39,7 +61,7 @@ const EXPECTED_TABLES = [
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request) {
   const start = Date.now();
 
   // ============ Database ============
@@ -65,7 +87,8 @@ export async function GET() {
         missingTables,
       };
     } catch (err) {
-      dbService = { ok: false, error: err.message, latencyMs: null, tableCount: 0, missingTables: EXPECTED_TABLES };
+      console.error("[health] DB check failed:", err?.message || err);
+      dbService = { ok: false, error: "Database query failed", latencyMs: null, tableCount: 0, missingTables: EXPECTED_TABLES };
     }
   } else {
     dbService = { ok: false, error: "DATABASE_URL not configured", latencyMs: null, tableCount: 0, missingTables: EXPECTED_TABLES };
@@ -105,6 +128,15 @@ export async function GET() {
   // ============ Overall status ============
   const allOk = llmService.ok && clerkService.ok;
   const totalMs = Date.now() - start;
+  const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate" };
+
+  // -- Public: liveness only. No service inventory, table names or env. --
+  if (!(await canSeeDetails(request))) {
+    return NextResponse.json(
+      { ok: allOk, timestamp: new Date().toISOString() },
+      { headers: noStore }
+    );
+  }
 
   return NextResponse.json({
     ok: allOk,
@@ -125,8 +157,6 @@ export async function GET() {
     },
     env: process.env.NODE_ENV,
   }, {
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate",
-    },
+    headers: noStore,
   });
 }

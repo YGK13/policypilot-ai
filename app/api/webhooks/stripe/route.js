@@ -150,8 +150,10 @@ export async function POST(request) {
     }
   } catch (err) {
     console.error(`[Stripe Webhook] Handler error for ${event.type}:`, err);
-    // -- Return 200 so Stripe doesn't retry indefinitely --
-    return NextResponse.json({ received: true, warning: err.message });
+    // -- Return 5xx so Stripe retries (with backoff, up to ~3 days). A 200 here
+    //    would drop a paid upgrade forever if the DB write hit a transient
+    //    error. Handlers are idempotent (plan set, not incremented). --
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
