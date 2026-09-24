@@ -108,12 +108,15 @@ export async function POST(request) {
       // We only auto-assign on user.created, and write it back to Clerk so the
       // value propagates to the client (useUser) and session claims used by RBAC.
       let role = user.public_metadata?.role;
+      let selfSignupSlug = null;
       if (!role && type === "user.created" && !user.organization_memberships?.[0]) {
         role = "hr_admin";
+        // -- Same per-company org slug /api/bootstrap assigns to self-signups --
+        selfSignupSlug = user.public_metadata?.orgSlug || `org_${clerkId}`;
         try {
           const client = await clerkClient();
           await client.users.updateUserMetadata(clerkId, {
-            publicMetadata: { ...(user.public_metadata || {}), role },
+            publicMetadata: { ...(user.public_metadata || {}), role, orgSlug: selfSignupSlug },
           });
           console.log(`[Webhook] Auto-assigned hr_admin to self-signup ${clerkId}`);
         } catch (metaErr) {
@@ -122,13 +125,19 @@ export async function POST(request) {
       }
       role = role || "employee";
 
-      // -- Resolve org: use Clerk organization if present, otherwise "default" --
+      // -- Resolve org: Clerk organization if present, else the metadata slug.
+      //    Never fall back to a shared "default" tenant: users with no org are
+      //    left for /api/bootstrap (invite linking) to provision. --
       const clerkOrgId = user.organization_memberships?.[0]?.organization?.id;
       const clerkOrgName = user.organization_memberships?.[0]?.organization?.name;
       const orgSlug = clerkOrgId
         ? `clerk_${clerkOrgId}`
-        : (user.public_metadata?.orgSlug || "default");
-      const orgName = clerkOrgName || user.public_metadata?.orgName || "Default Organization";
+        : (user.public_metadata?.orgSlug || selfSignupSlug);
+      if (!orgSlug) {
+        console.log(`[Webhook] ${type}: ${clerkId} has no org yet; skipping sync`);
+        return NextResponse.json({ received: true, skipped: true, reason: "no_org" });
+      }
+      const orgName = clerkOrgName || user.public_metadata?.orgName || "My Organization";
       const plan = user.public_metadata?.plan || "starter";
 
       // -- Ensure the org exists (upsert) --
