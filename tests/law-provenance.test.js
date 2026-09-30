@@ -233,6 +233,7 @@ vi.mock("@/lib/auth/rbac", () => ({ requireRole: vi.fn(async () => ({ session, e
 vi.mock("@/lib/db", () => ({
   saveChatMessage: vi.fn(async () => ({})),
   getChatHistory: vi.fn(async () => []),
+  getRecentSessionMessages: vi.fn(async () => []),
   isDbAvailable: vi.fn(() => false),
   countRecentChatMessages: vi.fn(async () => 0),
 }));
@@ -251,7 +252,8 @@ describe("/api/chat law rules", () => {
   it("system prompt requires citations and carries only provenance-gated law", async () => {
     streamText.mockReturnValue(stream([{ type: "text-delta", text: "Hi" }]));
     await POST(req({ query: "What is the minimum wage?" }));
-    const { system, maxOutputTokens } = streamText.mock.calls[0][0];
+    const { system: systemMessages, maxOutputTokens } = streamText.mock.calls[0][0];
+    const system = systemMessages.map((m) => m.content).join("\n");
     expect(system).toContain(LAW_CITATION_RULES);
     expect(system).toContain("VERIFIED LAW DATA");
     expect(system).toContain("source: https://www.twc.texas.gov/programs/wage-and-hour/texas-minimum-wage-law");
@@ -270,7 +272,8 @@ describe("/api/chat law rules", () => {
   it("routes drafting requests to the policy template with a Legal basis table", async () => {
     streamText.mockReturnValue(stream([{ type: "text-delta", text: "Draft" }]));
     const res = await POST(req({ query: "Draft a PTO policy for our Texas office" }));
-    const { system, maxOutputTokens } = streamText.mock.calls[0][0];
+    const { system: systemMessages, maxOutputTokens } = streamText.mock.calls[0][0];
+    const system = systemMessages.map((m) => m.content).join("\n");
     expect(system).toContain("Policy Drafting Mode");
     expect(system).toContain("Legal basis (internal, not part of the employee-facing policy)");
     expect(system).toContain("Requirement | Jurisdiction | Source | URL | Checked");

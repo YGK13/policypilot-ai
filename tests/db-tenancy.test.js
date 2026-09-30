@@ -56,3 +56,17 @@ describe("invites", () => {
     expect(calls[0].text).toMatch(/WHERE id = \? AND clerk_id IS NULL/);
   });
 });
+
+describe("getRecentSessionMessages", () => {
+  it("scopes to org, user and session and returns the newest rows oldest-first", async () => {
+    await db.getRecentSessionMessages("org-1", "user-1", "sess_abc", 6);
+    expect(calls[0].text).toMatch(/org_id = \?.*user_id = \?.*session_id = \?.*DESC LIMIT \?/s);
+    expect(calls[0].values).toEqual(["org-1", "user-1", "sess_abc", 6]);
+  });
+
+  it("never queries without a user or session", async () => {
+    expect(await db.getRecentSessionMessages("org-1", null, "sess_abc")).toEqual([]);
+    expect(await db.getRecentSessionMessages("org-1", "user-1", null)).toEqual([]);
+    expect(calls.length).toBe(0);
+  });
+});

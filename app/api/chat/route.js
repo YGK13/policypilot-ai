@@ -13,9 +13,22 @@ import {
   ANSWER_MAX_OUTPUT_TOKENS,
   DRAFT_MAX_OUTPUT_TOKENS,
 } from "@/lib/law/chat-prompt";
-import { saveChatMessage, getChatHistory, isDbAvailable, countRecentChatMessages } from "@/lib/db";
+import {
+  saveChatMessage,
+  getChatHistory,
+  getRecentSessionMessages,
+  isDbAvailable,
+  countRecentChatMessages,
+} from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
 import { retrieveContext } from "@/lib/rag";
+import {
+  buildConversationMessages,
+  buildRetrievalQuery,
+  collectSources,
+  encodeSourcesHeader,
+  HISTORY_MAX_MESSAGES,
+} from "@/lib/chat/conversation";
 
 // ============================================================================
 // POST /api/chat — Streaming LLM + local policy engine for HR queries
@@ -91,31 +104,30 @@ function buildEmployeeContext(employee) {
   return ctx;
 }
 
-// -- Full system prompt: employee context, org handbook, jurisdiction law.
+// -- Anthropic prompt caching (passed through by AI Gateway). Marks the end
+//    of the static prefix so repeat questions from the same state reuse it. --
+const CACHE_CONTROL = { anthropic: { cacheControl: { type: "ephemeral" } } };
+
+// -- STATIC system block: identical for every request from the same state and
+//    mode (answer vs draft), so it is cacheable. Holds the role, citation
+//    rules, drafting template, jurisdiction law and response guidelines.
 //    Law context is provenance-gated: only verified facts (with source URL and
 //    verified date) are given as values; the rest are marked UNVERIFIED. --
-function buildSystemPrompt(employee, excerpts, { draft = false } = {}) {
-  const hasHandbook = excerpts && excerpts.length > 0;
+function buildStaticSystemPrompt(state, { draft = false } = {}) {
   return `You are AI HR Pilot, an expert HR policy assistant.
 
 ## Your Role
-- Answer employee HR questions accurately, based FIRST on the company's own handbook excerpts below${hasHandbook ? "" : " (none uploaded yet — see fallback rule)"}, then on applicable employment law.
-- Always cite your source. When answering from a handbook excerpt, cite it as [Document Name § Section]. When answering from general employment law, say so explicitly.
-- ${hasHandbook
-    ? "If the handbook excerpts do not cover the question, say so plainly and answer from general employment-law guidance, clearly labeled as such. Do NOT present generic guidance as company policy."
-    : "This organization has not uploaded its handbook yet. Answer from general employment-law guidance only, clearly labeled as general guidance, and note that uploading the company handbook will produce company-specific answers."}
+- Answer employee HR questions accurately, based FIRST on the company's own handbook excerpts (given later in this prompt, when any match), then on applicable employment law.
+- Always cite your source. When answering from a handbook excerpt, cite it as [Document Name § Section], using the exact label shown on the excerpt. When answering from general employment law, say so explicitly.
 - Be empathetic but professional. Use clear, structured formatting.
 - When a question involves potential legal risk (harassment, discrimination, termination, retaliation, whistleblowing), always include a disclaimer directing the employee to contact HR or Legal directly.
 - Never provide actual legal advice. Always clarify that answers are general policy guidance.
+- This is a conversation: earlier turns are included. Resolve follow-ups ("what about part-time staff?", "and in New York?") against them, but answer only the latest question.
 
 ${LAW_CITATION_RULES}
 ${draft ? `\n${POLICY_DRAFT_INSTRUCTIONS}\n` : ""}
-
-## Current Employee Context
-${buildEmployeeContext(employee)}
-${buildHandbookContext(excerpts)}
 ## Applicable Employment Law
-${buildJurisdictionContext(employee.state)}
+${buildJurisdictionContext(state)}
 
 ## Response Guidelines
 1. Start with a direct answer to the question.
@@ -126,6 +138,29 @@ ${buildJurisdictionContext(employee.state)}
 6. End with a helpful next step.
 7. Format your response in HTML using <strong>, <br>, bullet points (•), etc.
 8. Do NOT use markdown headers or code blocks — use HTML formatting only.`;
+}
+
+// -- DYNAMIC system block: per-request grounding rule, employee context and
+//    the retrieved handbook excerpts. Comes after the cached prefix. --
+function buildDynamicSystemPrompt(employee, excerpts) {
+  const hasHandbook = excerpts && excerpts.length > 0;
+  const groundingRule = hasHandbook
+    ? "Handbook excerpts matched this question (below). If they do not actually cover it, say so plainly and answer from general employment-law guidance, clearly labeled as such. Do NOT present generic guidance as company policy."
+    : "No company handbook excerpt matched this question (the handbook may not be uploaded yet). Answer from general employment-law guidance only, clearly labeled as general guidance, and note that company-specific answers need the company handbook uploaded under Documents.";
+  return `## Grounding For This Question
+${groundingRule}
+
+## Current Employee Context
+${buildEmployeeContext(employee)}
+${buildHandbookContext(excerpts)}`;
+}
+
+// -- System messages: [static (cache breakpoint), dynamic] --
+function buildSystemMessages(employee, excerpts, { draft = false } = {}) {
+  return [
+    { role: "system", content: buildStaticSystemPrompt(employee.state, { draft }), providerOptions: CACHE_CONTROL },
+    { role: "system", content: buildDynamicSystemPrompt(employee, excerpts) },
+  ];
 }
 
 // -- Resolve the employee context for this request.
@@ -239,8 +274,23 @@ export async function POST(request) {
     // -- Resolve employee context (real profile for authed users) --
     const employee = resolveEmployee(guard.session, body);
 
-    // -- Retrieve the org's own handbook excerpts for grounding --
-    const excerpts = await retrieveContext(orgId, query, 6);
+    // -- Earlier turns of THIS session for multi-turn context. Loaded before
+    //    the new question is saved; scoped to the calling user in the query.
+    //    Never fatal: a history failure degrades to a single-turn answer. --
+    const validSessionId = typeof sessionId === "string" && sessionId.length <= 100 ? sessionId : null;
+    let historyRows = [];
+    if (isDbAvailable() && userId && validSessionId) {
+      try {
+        historyRows = await getRecentSessionMessages(orgId, userId, validSessionId, HISTORY_MAX_MESSAGES);
+      } catch (err) {
+        console.warn("[Chat API] history load failed (single-turn):", err.message);
+      }
+    }
+
+    // -- Retrieve the org's own handbook excerpts for grounding. Short
+    //    follow-ups borrow the previous question so retrieval stays on topic. --
+    const excerpts = await retrieveContext(orgId, buildRetrievalQuery(query, historyRows), 6);
+    const sources  = collectSources(excerpts);
 
     // -- Always run local engine for triage metadata --
     const localResponse = generateResponse(query, employee);
@@ -284,8 +334,8 @@ export async function POST(request) {
       try {
         const result = streamText({
           model:     AI_MODEL,
-          system:    buildSystemPrompt(employee, excerpts, { draft }),
-          prompt:    query,
+          system:    buildSystemMessages(employee, excerpts, { draft }),
+          messages:  buildConversationMessages(historyRows, query),
           maxOutputTokens: draft ? DRAFT_MAX_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS,
 
           // -- Errors surface inside the stream (streamText never throws
@@ -311,6 +361,7 @@ export async function POST(request) {
                   confidence: localResponse.confidence,
                   policyId:   localResponse.policyId,
                   grounded:   excerpts.length > 0,
+                  sources,
                   llm:        true,
                 },
               }).catch((err) => console.warn("[Chat API] saveChatMessage (stream) failed:", err.message));
@@ -368,6 +419,9 @@ export async function POST(request) {
         for (const [k, v] of Object.entries(metaHeaders)) {
           responseHeaders.set(k, v);
         }
+        // -- Handbook sections the answer was grounded in (shown as source
+        //    chips under the answer). URI-encoded: file names may be UTF-8. --
+        responseHeaders.set("X-HR-Sources", encodeSourcesHeader(sources));
         responseHeaders.set("X-HR-LLM", "1");
         responseHeaders.set("X-HR-LLM-Failed", "0");
 
