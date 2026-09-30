@@ -108,7 +108,8 @@ function SystemStatus() {
     );
   }
 
-  if (!health) return null;
+  // -- Non-admins get only { ok } from /api/health: nothing to show --
+  if (!health || !health.services) return null;
 
   const { services, setup } = health;
   const needsDbInit = setup?.needsSetup && services?.database?.ok === false && !!process.env.DATABASE_URL;

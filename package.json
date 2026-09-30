@@ -7,10 +7,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "law:freshness": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/law-freshness.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
@@ -36,7 +37,8 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.3.1",
-    "eslint": "^10.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.6",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
     "vitest": "^4.1.10"

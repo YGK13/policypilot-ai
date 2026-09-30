@@ -1,0 +1,65 @@
+# Weekly law-data freshness check.
+# Keeps ONE rolling issue (label: law-freshness) listing every law fact that is
+# unverified or past the 90-day verification window. The issue body is
+# replaced each run; the issue is created when missing and closed when the
+# list is empty. Uses only the built-in GITHUB_TOKEN.
+name: Law data freshness
+
+on:
+  schedule:
+    - cron: "17 13 * * 1" # Mondays 13:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: law-freshness
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # -- The script has no dependencies, so no npm install is needed --
+      - name: Build report
+        id: report
+        run: |
+          npm run -s law:freshness -- --json > freshness.json
+          npm run -s law:freshness -- --markdown > body.md
+          echo "count=$(node -p 'require("./freshness.json").count')" >> "$GITHUB_OUTPUT"
+
+      - name: Update the rolling issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COUNT: ${{ steps.report.outputs.count }}
+          LABEL: law-freshness
+          TITLE: "Law data needs verification"
+        run: |
+          gh label create "$LABEL" --color D93F0B \
+            --description "Law facts unverified or past the 90-day verification window" 2>/dev/null || true
+
+          number=$(gh issue list --label "$LABEL" --state open --limit 1 --json number --jq '.[0].number // empty')
+
+          if [ "$COUNT" -gt 0 ]; then
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --title "$TITLE ($COUNT)" --body-file body.md
+              echo "Updated issue #$number ($COUNT items)"
+            else
+              gh issue create --title "$TITLE ($COUNT)" --label "$LABEL" --body-file body.md
+            fi
+          elif [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+            gh issue close "$number" --reason completed --comment "All law facts are verified and inside the 90-day window."
+            echo "Closed issue #$number"
+          else
+            echo "Nothing to re-verify."
+          fi

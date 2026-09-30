@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { streamText } from "ai";
+import * as Sentry from "@sentry/nextjs";
 import { generateResponse } from "@/lib/engine/response-gen";
 import { DEMO_EMPLOYEES } from "@/lib/data/demo-data";
-import JURISDICTIONS from "@/lib/data/jurisdictions";
+import {
+  buildJurisdictionContext,
+  isPolicyDraftRequest,
+  LAW_CITATION_RULES,
+  POLICY_DRAFT_INSTRUCTIONS,
+  LEGAL_DISCLAIMER_HTML,
+  DRAFT_DISCLAIMER_HTML,
+  ANSWER_MAX_OUTPUT_TOKENS,
+  DRAFT_MAX_OUTPUT_TOKENS,
+} from "@/lib/law/chat-prompt";
 import { saveChatMessage, getChatHistory, isDbAvailable, countRecentChatMessages } from "@/lib/db";
 import { requireRole } from "@/lib/auth/rbac";
 import { retrieveContext } from "@/lib/rag";
@@ -30,31 +40,24 @@ import { retrieveContext } from "@/lib/rag";
 //    In production: Vercel auto-provisions it on every deployment. --
 const HAS_LLM = !!process.env.VERCEL_OIDC_TOKEN;
 
-// -- Gateway model slug. "claude-sonnet-4.6" (dotted) is NOT a valid Anthropic
-//    id; the current Sonnet is claude-sonnet-4-6. Env-overridable for upgrades. --
-const AI_MODEL = process.env.AI_MODEL || "anthropic/claude-sonnet-4-6";
+// -- AI Gateway model slug. Gateway slugs use the DOTTED version form
+//    ("anthropic/claude-sonnet-4.6"), not Anthropic's hyphenated API ids
+//    ("claude-sonnet-4-6"), which the gateway rejects. Current Sonnet is
+//    "anthropic/claude-sonnet-5" (listed in the @ai-sdk/gateway model catalog
+//    from v4; the pinned 3.x types predate it, but the id is a plain string).
+//    Env-overridable for upgrades. --
+const AI_MODEL = process.env.AI_MODEL || "anthropic/claude-sonnet-5";
+
+// -- Hard cap on generated tokens per answer (cost control). Policy drafts
+//    get a larger, still bounded, budget (see lib/law/chat-prompt.js). --
+const MAX_OUTPUT_TOKENS = ANSWER_MAX_OUTPUT_TOKENS;
+
+// -- Appended when the model stream fails after some text was already sent --
+const INTERRUPTED_NOTICE =
+  "<br><br><em>The AI answer was interrupted. Standard policy guidance:</em><br>";
 
 // -- Rate limit: messages per user per minute --
 const CHAT_RATE_LIMIT = parseInt(process.env.CHAT_RATE_LIMIT || "20");
-
-// -- Build jurisdiction context for the system prompt --
-function buildJurisdictionContext(state) {
-  const j   = JURISDICTIONS[state] || JURISDICTIONS["Federal"];
-  const fed = JURISDICTIONS["Federal"];
-  let ctx   = `\n## ${state} Employment Law Summary\n`;
-  for (const [key, val] of Object.entries(j)) {
-    if (key === "flag") continue;
-    ctx += `- ${key}: ${val}\n`;
-  }
-  if (state !== "Federal") {
-    ctx += `\n## Federal Baseline\n`;
-    for (const [key, val] of Object.entries(fed)) {
-      if (key === "flag") continue;
-      ctx += `- ${key}: ${val}\n`;
-    }
-  }
-  return ctx;
-}
 
 // -- Render retrieved handbook excerpts for the system prompt --
 function buildHandbookContext(excerpts) {
@@ -88,8 +91,10 @@ function buildEmployeeContext(employee) {
   return ctx;
 }
 
-// -- Full system prompt: employee context, org handbook, jurisdiction law --
-function buildSystemPrompt(employee, excerpts) {
+// -- Full system prompt: employee context, org handbook, jurisdiction law.
+//    Law context is provenance-gated: only verified facts (with source URL and
+//    verified date) are given as values; the rest are marked UNVERIFIED. --
+function buildSystemPrompt(employee, excerpts, { draft = false } = {}) {
   const hasHandbook = excerpts && excerpts.length > 0;
   return `You are AI HR Pilot, an expert HR policy assistant.
 
@@ -103,6 +108,9 @@ function buildSystemPrompt(employee, excerpts) {
 - When a question involves potential legal risk (harassment, discrimination, termination, retaliation, whistleblowing), always include a disclaimer directing the employee to contact HR or Legal directly.
 - Never provide actual legal advice. Always clarify that answers are general policy guidance.
 
+${LAW_CITATION_RULES}
+${draft ? `\n${POLICY_DRAFT_INSTRUCTIONS}\n` : ""}
+
 ## Current Employee Context
 ${buildEmployeeContext(employee)}
 ${buildHandbookContext(excerpts)}
@@ -111,10 +119,10 @@ ${buildJurisdictionContext(employee.state)}
 
 ## Response Guidelines
 1. Start with a direct answer to the question.
-2. Include specific numbers, dates, or thresholds ONLY when they come from the handbook excerpts or the law summaries above. Never invent figures.
+2. Include specific numbers, dates, or thresholds ONLY when they come from the handbook excerpts or the VERIFIED LAW DATA above, with their citation. Never invent figures.
 3. Mention state-specific laws when they differ from federal baseline.
 4. Use bullet points and bold text for readability.
-5. Keep responses under 300 words unless the topic requires more detail.
+5. ${draft ? "Follow the Policy Drafting Mode structure in full." : "Keep responses under 300 words unless the topic requires more detail."}
 6. End with a helpful next step.
 7. Format your response in HTML using <strong>, <br>, bullet points (•), etc.
 8. Do NOT use markdown headers or code blocks — use HTML formatting only.`;
@@ -164,9 +172,13 @@ export async function GET(request) {
     return NextResponse.json({ messages: [], demo: true });
   }
 
-  // -- Tenant + user identity from the session, never the query string --
-  const orgId  = guard.session.orgId || "default";
+  // -- Tenant + user identity from the session, never the query string.
+  //    No shared "default" fallback: an unprovisioned user fails closed. --
+  const orgId  = guard.session.orgId;
   const userId = guard.session.user?.id || null;
+  if (!orgId) {
+    return NextResponse.json({ error: "Workspace not provisioned" }, { status: 409 });
+  }
 
   const url       = new URL(request.url);
   const sessionId = url.searchParams.get("sessionId");
@@ -201,9 +213,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Query too long. Maximum 2000 characters." }, { status: 413 });
     }
 
-    // -- Tenant + user identity from the session, never the body --
-    const orgId  = guard.session.orgId || "default";
+    // -- Tenant + user identity from the session, never the body.
+    //    No shared "default" fallback: an unprovisioned user fails closed. --
+    const orgId  = guard.session.orgId;
     const userId = guard.session.user?.id || null;
+    if (!orgId) {
+      return NextResponse.json({ error: "Workspace not provisioned" }, { status: 409 });
+    }
 
     // -- Rate limit: DB-backed sliding window per user (survives cold starts) --
     if (isDbAvailable() && userId) {
@@ -229,6 +245,13 @@ export async function POST(request) {
     // -- Always run local engine for triage metadata --
     const localResponse = generateResponse(query, employee);
 
+    // -- Policy-drafting requests get the structured template + Legal basis
+    //    table; every answer ends with the not-legal-advice disclaimer,
+    //    appended here so the model cannot omit it. --
+    const draft       = isPolicyDraftRequest(query);
+    const disclaimer  = draft ? DRAFT_DISCLAIMER_HTML : LEGAL_DISCLAIMER_HTML;
+    const localAnswer = localResponse.answer + LEGAL_DISCLAIMER_HTML;
+
     // -- Metadata headers: sent with EVERY response (streaming or JSON) --
     const metaHeaders = {
       "X-HR-Category":   localResponse.category    || "General",
@@ -240,6 +263,7 @@ export async function POST(request) {
       "X-HR-Disclaimer": localResponse.disclaimer   ? "1" : "0",
       "X-HR-Source":     localResponse.source       || "AI HR Pilot",
       "X-HR-Grounded":   excerpts.length > 0 ? "1" : "0",
+      "X-HR-Mode":       draft ? "policy-draft" : "answer",
     };
 
     // -- Save user message to Neon (fire-and-forget) --
@@ -260,9 +284,17 @@ export async function POST(request) {
       try {
         const result = streamText({
           model:     AI_MODEL,
-          system:    buildSystemPrompt(employee, excerpts),
+          system:    buildSystemPrompt(employee, excerpts, { draft }),
           prompt:    query,
-          maxTokens: 1024,
+          maxOutputTokens: draft ? DRAFT_MAX_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS,
+
+          // -- Errors surface inside the stream (streamText never throws
+          //    synchronously); report them, the stream handling below turns
+          //    them into the local-engine fallback. --
+          onError: ({ error }) => {
+            console.error("[Chat API] LLM stream error:", error?.message || error);
+            Sentry.captureException(error);
+          },
 
           // -- onFinish: persist assistant message to Neon after stream completes --
           onFinish: ({ text }) => {
@@ -271,7 +303,7 @@ export async function POST(request) {
                 userId,
                 sessionId: sessionId || null,
                 role:      "assistant",
-                content:   text,
+                content:   text + disclaimer,
                 metadata:  {
                   category:   localResponse.category,
                   riskScore:  localResponse.riskScore,
@@ -286,23 +318,64 @@ export async function POST(request) {
           },
         });
 
-        // -- Return plain text stream with metadata headers --
-        const streamResponse = result.toTextStreamResponse();
-        const responseHeaders = new Headers(streamResponse.headers);
+        // -- Wait for the first text chunk before committing to a streaming
+        //    response. A gateway/model failure (bad slug, auth, overload) shows
+        //    up here as an error part and throws into the JSON fallback below,
+        //    instead of returning an empty 200 stream. --
+        const parts = result.fullStream[Symbol.asyncIterator]();
+        let firstText = null;
+        while (firstText === null) {
+          const { value, done } = await parts.next();
+          if (done) throw new Error("LLM stream ended without text");
+          if (value.type === "error") throw value.error instanceof Error ? value.error : new Error(String(value.error));
+          if (value.type === "text-delta" && value.text) firstText = value.text;
+        }
+
+        // -- Stream the rest. A mid-stream failure appends the local-engine
+        //    answer so the user never ends up with a truncated reply. --
+        const encoder = new TextEncoder();
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(firstText));
+          },
+          async pull(controller) {
+            try {
+              while (true) {
+                const { value, done } = await parts.next();
+                if (done) {
+                  controller.enqueue(encoder.encode(disclaimer));
+                  controller.close();
+                  return;
+                }
+                if (value.type === "error") throw value.error;
+                if (value.type === "text-delta" && value.text) {
+                  controller.enqueue(encoder.encode(value.text));
+                  return;
+                }
+              }
+            } catch (err) {
+              console.error("[Chat API] LLM stream failed mid-response:", err?.message || err);
+              controller.enqueue(encoder.encode(INTERRUPTED_NOTICE + localAnswer));
+              controller.close();
+            }
+          },
+          cancel() {
+            parts.return?.();
+          },
+        });
+
+        const responseHeaders = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
         for (const [k, v] of Object.entries(metaHeaders)) {
           responseHeaders.set(k, v);
         }
         responseHeaders.set("X-HR-LLM", "1");
         responseHeaders.set("X-HR-LLM-Failed", "0");
 
-        return new Response(streamResponse.body, {
-          status:  streamResponse.status,
-          headers: responseHeaders,
-        });
+        return new Response(body, { status: 200, headers: responseHeaders });
       } catch (llmError) {
-        console.error("[Chat API] streamText failed, falling back to local:", llmError.message);
+        console.error("[Chat API] LLM failed, falling back to local:", llmError?.message || llmError);
         return NextResponse.json({
-          answer:     localResponse.answer,
+          answer:     localAnswer,
           source:     localResponse.source,
           category:   localResponse.category,
           riskScore:  localResponse.riskScore,
@@ -329,7 +402,7 @@ export async function POST(request) {
         userId,
         sessionId: sessionId || null,
         role:      "assistant",
-        content:   localResponse.answer,
+        content:   localAnswer,
         metadata:  {
           category:   localResponse.category,
           riskScore:  localResponse.riskScore,
@@ -342,7 +415,7 @@ export async function POST(request) {
     }
 
     return NextResponse.json({
-      answer:        localResponse.answer,
+      answer:        localAnswer,
       source:        localResponse.source,
       category:      localResponse.category,
       riskScore:     localResponse.riskScore,

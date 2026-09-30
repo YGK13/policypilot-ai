@@ -28,10 +28,15 @@ export async function POST(request) {
   const guard = await requireRole("hr_staff");
   if (guard.error) return guard.error;
 
+  // -- Session-derived tenant. The demo session carries orgId "default" itself;
+  //    an authed user with no org must NOT fall into a shared tenant. --
+  const orgId = guard.session.orgId;
+  if (!orgId) {
+    return NextResponse.json({ error: "Workspace not provisioned" }, { status: 409 });
+  }
+
   const formData = await request.formData();
   const file = formData.get("file");
-  // -- Session-derived tenant. "default" only exists in Clerk-less demo mode. --
-  const orgId = guard.session.orgId || "default";
   const uploadedBy = guard.session.user?.id || null;
 
   if (!file) {
