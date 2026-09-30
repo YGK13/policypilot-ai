@@ -6,6 +6,7 @@ import { generateResponse } from "@/lib/engine/response-gen";
 import { genId } from "@/lib/utils";
 import { useToast } from "@/components/layout/ToastProvider";
 import DOMPurify from "dompurify";
+import { decodeSourcesHeader } from "@/lib/chat/conversation";
 
 // ============================================================================
 // CHAT PAGE — AI conversation with jurisdiction-aware responses
@@ -13,7 +14,7 @@ import DOMPurify from "dompurify";
 // ============================================================================
 
 function ChatContent() {
-  const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser, orgId } = useApp();
+  const { employee, settings, tickets, setTickets, addAudit, addNotification, currentUser, orgId, mode } = useApp();
   const { addToast } = useToast();
 
   // -- Session ID: stable per browser tab so history loads correctly --
@@ -79,6 +80,8 @@ function ChatContent() {
           confidence: row.metadata?.confidence,
           policyId: row.metadata?.policyId,
           llm: row.metadata?.llm || false,
+          sources: Array.isArray(row.metadata?.sources) ? row.metadata.sources : undefined,
+          grounded: row.metadata?.llm ? !!row.metadata?.grounded : undefined,
           fromDb: true,
         }));
         // -- Only replace state if session storage had nothing --
@@ -293,6 +296,9 @@ function ChatContent() {
             flags:      (() => { try { return JSON.parse(res.headers.get("X-HR-Flags") || "[]"); } catch { return []; } })(),
             disclaimer: res.headers.get("X-HR-Disclaimer") === "1",
             source:     res.headers.get("X-HR-Source")    || "AI HR Pilot",
+            // -- Handbook sections the answer drew on (LLM path only) --
+            sources:    decodeSourcesHeader(res.headers.get("X-HR-Sources")),
+            grounded:   res.headers.get("X-HR-Grounded") === "1",
           };
 
           const isLLMStream = res.headers.get("X-HR-LLM") === "1";
@@ -369,6 +375,7 @@ function ChatContent() {
   }, [input, isTyping, employee, addAudit, llmEnabled, processResponse, currentUser, orgId]);
 
   const suggestions = [
+    `Draft a remote work policy for ${employee.state === "Federal" ? "our company" : employee.state}`,
     "What's my PTO balance?",
     "How does 401(k) matching work?",
     "I need to report harassment",
@@ -471,6 +478,36 @@ function ChatContent() {
                 {isBot && m.disclaimer && settings.disclaimers && (
                   <div className={`mt-2 px-3 py-2 border-l-3 rounded-r-md text-[11px] text-gray-600 leading-relaxed ${m.routing === "legal" ? "border-l-danger-500 bg-danger-50" : "border-l-warning-500 bg-warning-50"}`}>
                     {m.disclaimer}
+                  </div>
+                )}
+                {/* -- Citations: handbook sections this answer was grounded in.
+                      LLM answers only; the local engine does not read the handbook. -- */}
+                {isBot && m.llm && !m.streaming && Array.isArray(m.sources) && m.sources.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span className="font-semibold text-gray-500">Sources:</span>
+                    {m.sources.map((s, i) => (
+                      <span
+                        key={`${s.document}-${s.section || ""}-${i}`}
+                        className="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 text-gray-700 px-1.5 py-0.5 rounded"
+                        title={s.section ? `${s.document} § ${s.section}` : s.document}
+                      >
+                        📄 {s.document}{s.section ? ` § ${s.section}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {isBot && m.llm && !m.streaming && m.grounded === false && (
+                  <div className="mt-2 text-[10px] text-gray-500">
+                    General guidance: no section of your company handbook matched this question.
+                    {mode === "admin" && (
+                      <>
+                        {" "}
+                        <a href="/documents" className="text-brand-600 font-semibold hover:underline">
+                          Upload your handbook
+                        </a>{" "}
+                        for company-specific, cited answers.
+                      </>
+                    )}
                   </div>
                 )}
                 {isBot && m.id !== "welcome" && (

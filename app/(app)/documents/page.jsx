@@ -8,7 +8,8 @@ import SearchBar from "@/components/ui/SearchBar";
 
 // ============================================================================
 // DOCUMENTS PAGE — Upload zone + persistent document library.
-// Loads from Neon DB on mount (when available), falls back to demo docs.
+// Loads from Neon DB on mount. Sample (demo) docs are shown ONLY in demo mode
+// (no database); a real org with no uploads sees an upload-first empty state.
 // Uploads go to Vercel Blob and are saved to Neon for persistence.
 // ============================================================================
 
@@ -51,8 +52,10 @@ function DocumentsContent() {
   const [search, setSearch] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
-  // -- Doc list: starts with demo docs, DB rows replace them when loaded --
-  const [docs, setDocs] = useState(() => [...DEMO_DOCS]);
+  // -- Doc list: empty until the API says whether this is demo mode. Real orgs
+  //    never see sample docs they did not upload (they would look like the
+  //    AI is answering from them). --
+  const [docs, setDocs] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -64,15 +67,14 @@ function DocumentsContent() {
         const resolvedOrgId = orgId || "default";
         const res = await fetch(`/api/documents?orgId=${resolvedOrgId}`);
         const data = await res.json();
-        if (!data.demo && Array.isArray(data.documents)) {
-          if (data.documents.length > 0) {
-            // Neon has real docs — show them instead of demo docs
-            setDocs(data.documents.map(normalizeDbDoc));
-          }
-          // If Neon is empty, keep showing demo docs
+        if (data.demo) {
+          // Demo mode (no database): sample library for the product tour
+          setDocs([...DEMO_DOCS]);
+        } else if (Array.isArray(data.documents)) {
+          setDocs(data.documents.map(normalizeDbDoc));
         }
       } catch {
-        // Non-fatal: fall back to demo docs
+        // Non-fatal: leave the library empty; uploads still work
       } finally {
         setDbLoaded(true);
       }
@@ -116,6 +118,20 @@ function DocumentsContent() {
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          // -- Tell the admin whether chat can now answer (and cite) from it --
+          if (data.indexed) {
+            addToast(
+              "success",
+              "Ready for questions",
+              `${file.name}: ${data.chunks} section${data.chunks === 1 ? "" : "s"} indexed. Answers in Chat will now cite it.`
+            );
+          } else if (data.indexReason === "no_extractable_text") {
+            addToast(
+              "warning",
+              "Saved, but not searchable",
+              `${file.name} has no readable text (scanned PDF or unsupported format). Upload a text PDF, DOCX or TXT so Chat can answer from it.`
+            );
+          }
           uploaded.push({
             id: data.dbId ? `db-${data.dbId}` : `upload-${Date.now()}-${uploaded.length}`,
             dbId: data.dbId || null,
@@ -274,7 +290,32 @@ function DocumentsContent() {
 
       {/* ============ Document Table ============ */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
-        {filtered.length === 0 ? (
+        {dbLoaded && docs.length === 0 ? (
+          <div className="text-center py-14 px-6 text-gray-500">
+            <div className="text-4xl mb-3">📘</div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">Start with your employee handbook</h3>
+            <p className="text-xs max-w-md mx-auto leading-relaxed">
+              Upload it above (PDF, DOCX or TXT). AI HR Pilot indexes it in seconds, and every
+              answer in Chat then cites the exact handbook section it came from. Until then,
+              answers are general employment-law guidance.
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-4 py-2 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                Upload handbook
+              </button>
+              <a
+                href="/chat"
+                className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-50"
+              >
+                No handbook yet? Draft a policy in Chat
+              </a>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <div className="text-4xl mb-3">📚</div>
             <h3 className="text-sm font-semibold text-gray-600 mb-1">No documents found</h3>
